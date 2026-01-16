@@ -8,11 +8,14 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.addColumn('yatra', 'description', {
-      type: Sequelize.TEXT,
-      allowNull: true,
-      after: 'registration_end_date'
-    });
+    const tableDescription = await queryInterface.describeTable('yatra');
+    if (!tableDescription.description) {
+      await queryInterface.addColumn('yatra', 'description', {
+        type: Sequelize.TEXT,
+        allowNull: true,
+        after: 'registration_end_date'
+      });
+    }
   },
 
   down: async (queryInterface, Sequelize) => {

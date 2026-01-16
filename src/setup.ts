@@ -8,7 +8,7 @@ export function setupApp(app: INestApplication) {
     expressApp.use(require('express').urlencoded({ extended: true, limit: '20mb' }));
 
     // CORS Configuration
-    const corsOrigins = process.env.CORS_ORIGIN?.split(',') || '*';
+    const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()) || '*';
     app.enableCors({
         origin: corsOrigins === '*' ? true : corsOrigins,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
