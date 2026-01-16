@@ -10,5 +10,10 @@
             "src": "/(.*)",
             "dest": "src/index.ts"
         }
-    ]
+    ],
+    "functions": {
+        "api/*.ts": {
+            "runtime": "@vercel/node"
+        }
+    }
 }
