@@ -47,17 +47,6 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
         const dbName = configService.get<string>('DB_NAME') || 'yatra_db';
         const nodeEnv = configService.get<string>('NODE_ENV');
 
-        // 🔍 DEBUG LOGS
-        console.log('📦 DB CONFIG CHECK');
-        console.log('DB_HOST:', dbHost);
-        console.log('DB_PORT:', dbPort);
-        console.log('DB_USER:', dbUser);
-        console.log('DB_NAME:', dbName);
-        console.log(
-          'DB_PASSWORD:',
-          dbPassword ? '******** (present)' : '❌ EMPTY',
-        );
-        console.log('NODE_ENV:', nodeEnv);
 
         return {
           type: 'mysql',
