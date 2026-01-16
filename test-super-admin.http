@@ -1,0 +1,100 @@
+###
+# Super Admin API Test File
+# Use with VS Code REST Client extension or similar HTTP client
+###
+
+### Health Check
+GET http://localhost:5000/health
+Content-Type: application/json
+
+###
+# 1. Create First Super Admin (No Authentication Required)
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+
+{
+  "email": "superadmin@yatra.com",
+  "password": "SuperAdmin@123",
+  "name": "Super Administrator",
+  "contact_number": "+919876543210",
+  "permissions": ["manage_users", "manage_hotels", "manage_rooms", "view_reports"]
+}
+
+###
+# 2. Login as Super Admin
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@yatra.com",
+  "password": "SuperAdmin@123"
+}
+
+###
+# 3. Create Additional Super Admin (Requires Authentication)
+# Replace <YOUR_TOKEN_HERE> with the token from login response
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+Authorization: Bearer <YOUR_TOKEN_HERE>
+
+{
+  "email": "admin2@yatra.com",
+  "password": "Admin2@456",
+  "name": "Second Administrator",
+  "contact_number": "+919876543211"
+}
+
+###
+# 4. Test: Invalid Email Format (Should fail with 400)
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "Test@12345",
+  "name": "Test Admin"
+}
+
+###
+# 5. Test: Weak Password (Should fail with 400)
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+
+{
+  "email": "weak@yatra.com",
+  "password": "weak",
+  "name": "Weak Password Admin"
+}
+
+###
+# 6. Test: Duplicate Email (Should fail with 400)
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+
+{
+  "email": "superadmin@yatra.com",
+  "password": "Test@12345",
+  "name": "Duplicate Admin"
+}
+
+###
+# 7. Test: Create Without Auth When Super Admin Exists (Should fail with 401)
+POST http://localhost:5000/api/auth/create-super-admin
+Content-Type: application/json
+
+{
+  "email": "unauthorized@yatra.com",
+  "password": "Test@12345",
+  "name": "Unauthorized Admin"
+}
+
+###
+# 8. Get Current Admin Details (After Login)
+GET http://localhost:5000/api/auth/me
+Authorization: Bearer <YOUR_TOKEN_HERE>
+
+###
+# 9. Logout
+POST http://localhost:5000/api/auth/logout
+Authorization: Bearer <YOUR_TOKEN_HERE>
+
