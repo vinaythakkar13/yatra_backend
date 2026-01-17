@@ -64,6 +64,17 @@ async function createApp(): Promise<Express> {
   // Request logging middleware
   expressApp.use(corsLogger);
 
+  // Diagnostic CORS middleware
+  expressApp.use((req, res, next) => {
+    if (req.method === 'OPTIONS') {
+      console.log('🔍 PREFLIGHT DIAGNOSTIC');
+      console.log('   - Origin:', req.headers.origin);
+      console.log('   - Request Method:', req.headers['access-control-request-method']);
+      console.log('   - Request Headers:', req.headers['access-control-request-headers']);
+    }
+    next();
+  });
+
   // ============================================
   // CORS Configuration (Production-Ready)
   // ============================================
@@ -80,7 +91,7 @@ async function createApp(): Promise<Express> {
       'http://localhost:3001',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
-      'https://yatra-kappa.vercel.app/'
+      'https://yatra-kappa.vercel.app'
     ];
   };
 
@@ -108,7 +119,22 @@ async function createApp(): Promise<Express> {
     },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'x-client-version',
+      'x-client-platform',
+      'Referer',
+      'User-Agent',
+      'sec-ch-ua',
+      'sec-ch-ua-mobile',
+      'sec-ch-ua-platform',
+      'Accept-Language',
+      'Accept-Encoding',
+    ],
     exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
     maxAge: 3600, // 1 hour preflight cache
   });
@@ -205,9 +231,36 @@ export default async function handler(req: Request, res: Response): Promise<void
     console.error('❌ Error in serverless handler:', error);
 
     if (!res.headersSent) {
+      console.error('📋 Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace',
+      });
+
+      // Add CORS headers to error response so the browser doesn't report it as a CORS error
+      const origin = req.headers.origin;
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://127.0.0.1:3000',
+        'https://yatra-kappa.vercel.app'
+      ];
+
+      if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+
+      res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+
       res.status(500).json({
         statusCode: 500,
         message: 'Internal Server Error',
+        details: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
       });
     }
