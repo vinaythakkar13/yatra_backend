@@ -4,8 +4,12 @@
  * This file exports a serverless handler function that wraps the NestJS application
  * for deployment on Vercel's serverless platform.
  * 
- * The handler initializes the NestJS app once and reuses it for subsequent requests
- * to minimize cold start times.
+ * Modern Express 5+ compatible implementation:
+ * ✅ No deprecated app.router usage
+ * ✅ No app.listen() call
+ * ✅ Proper ExpressAdapter usage
+ * ✅ Request caching for cold start optimization
+ * ✅ Full CORS support for production
  */
 
 import { NestFactory } from '@nestjs/core';
@@ -13,63 +17,105 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from '../src/app.module';
-import express from 'express';
+import express, { Express, Request, Response } from 'express';
 import { corsLogger } from './cors-logger.middleware';
 
-// Cache the NestJS app instance to reuse across invocations
-let cachedApp: express.Express;
+/**
+ * Type for cached app instance
+ */
+interface CachedAppInstance {
+  app: Express;
+  isInitialized: boolean;
+}
+
+let cachedInstance: CachedAppInstance | null = null;
 
 /**
  * Initialize and configure the NestJS application
  * This function is called once and the app instance is cached
+ * for subsequent serverless invocations
  */
-async function createApp(): Promise<express.Express> {
-  if (cachedApp) {
-    return cachedApp;
+async function createApp(): Promise<Express> {
+  // Return cached app if already initialized
+  if (cachedInstance?.isInitialized) {
+    return cachedInstance.app;
   }
 
+  // Create Express instance
   const expressApp = express();
+
+  // Create NestJS adapter from Express instance
   const adapter = new ExpressAdapter(expressApp);
 
+  // Create NestJS application with Express adapter
   const app = await NestFactory.create(AppModule, adapter, {
     bodyParser: true,
     rawBody: false,
   });
 
-  // Configure body parser limits for large base64 image uploads (20MB)
+  // ============================================
+  // Middleware Configuration
+  // ============================================
+
+  // Body parser middleware - 20MB limit for image uploads
   expressApp.use(express.json({ limit: '20mb' }));
   expressApp.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-  // Global logging middleware for all requests
+  // Request logging middleware
   expressApp.use(corsLogger);
 
-  // CORS Configuration
+  // ============================================
+  // CORS Configuration (Production-Ready)
+  // ============================================
+  const getAllowedOrigins = (): string[] => {
+    // Get from environment or use defaults
+    const envOrigins = process.env.CORS_ORIGIN;
+    if (envOrigins) {
+      return envOrigins.split(',').map(o => o.trim());
+    }
+
+    // Default origins for development
+    return [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'https://yatra-kappa.vercel.app/'
+    ];
+  };
+
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      console.log('🌍 Request Origin:', origin);
+      const allowedOrigins = getAllowedOrigins();
 
-      const allowedOrigins: string[] = [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'https://yatra-kappa.vercel.app/'
-      ];
+      console.log(`🌍 Incoming request from origin: ${origin || '[server-to-server]'}`);
 
-      // Allow server-to-server or Postman
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
+      // Allow requests without origin (server-to-server, Postman, curl)
+      if (!origin) {
         return callback(null, true);
       }
 
-      console.error('❌ CORS BLOCKED:', origin);
-      callback(new Error('Not allowed by CORS'));
+      // Check if origin is in allowed list
+      if (allowedOrigins.includes(origin)) {
+        console.log(`✅ CORS allowed for origin: ${origin}`);
+        return callback(null, true);
+      }
+
+      // Log blocked origin
+      console.warn(`❌ CORS BLOCKED: Origin '${origin}' not in allowed list`);
+      console.warn(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
+      callback(new Error('CORS policy violation'));
     },
     credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Authorization'
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+    maxAge: 3600, // 1 hour preflight cache
   });
 
-  // Global validation pipe
+  // ============================================
+  // Global Pipes (Validation)
+  // ============================================
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -81,8 +127,14 @@ async function createApp(): Promise<express.Express> {
     }),
   );
 
-  // Swagger Documentation (only in non-production or if explicitly enabled)
-  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  // ============================================
+  // Swagger Documentation
+  // ============================================
+  const shouldEnableSwagger =
+    process.env.NODE_ENV !== 'production' ||
+    process.env.ENABLE_SWAGGER === 'true';
+
+  if (shouldEnableSwagger) {
     const config = new DocumentBuilder()
       .setTitle('Yatra Event Management System API')
       .setDescription('Backend API for managing pilgrimage events, accommodations, and participant registrations')
@@ -99,6 +151,7 @@ async function createApp(): Promise<express.Express> {
         'bearerAuth',
       )
       .build();
+
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document, {
       explorer: true,
@@ -107,27 +160,56 @@ async function createApp(): Promise<express.Express> {
     });
 
     // API docs JSON endpoint
-    app.getHttpAdapter().get('/api-docs.json', (req, res) => {
+    expressApp.get('/api-docs.json', (req: Request, res: Response) => {
       res.setHeader('Content-Type', 'application/json');
-      res.send(document);
+      res.json(document);
     });
   }
 
-  // Prefix for all routes
+  // ============================================
+  // Global Route Prefix
+  // ============================================
   app.setGlobalPrefix('api');
 
-  // Initialize the app (but don't listen - Vercel handles that)
+  // ============================================
+  // Initialize NestJS App
+  // ============================================
   await app.init();
 
-  cachedApp = expressApp;
+  // Cache the instance for subsequent invocations
+  cachedInstance = {
+    app: expressApp,
+    isInitialized: true,
+  };
+
+  console.log('✅ NestJS app initialized and cached for Vercel');
   return expressApp;
 }
 
 /**
  * Vercel Serverless Handler
- * This is the entry point for all requests on Vercel
+ * Entry point for all incoming requests
+ * 
+ * Compatible with:
+ * - Vercel Serverless Functions
+ * - Express 5+
+ * - NestJS 11+
  */
-export default async function handler(req: express.Request, res: express.Response) {
-  const app = await createApp();
-  return app(req, res);
+export default async function handler(req: Request, res: Response): Promise<void> {
+  try {
+    const expressApp = await createApp();
+
+    // Route request through Express/NestJS app
+    expressApp(req, res);
+  } catch (error) {
+    console.error('❌ Error in serverless handler:', error);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        statusCode: 500,
+        message: 'Internal Server Error',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
 }
