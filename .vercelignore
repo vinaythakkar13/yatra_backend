@@ -1,0 +1,64 @@
+# Dependencies (will be installed by Vercel)
+node_modules/
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Build outputs (Vercel will build fresh)
+dist/
+build/
+coverage/
+
+# Testing
+.nyc_output/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Uploads (should use cloud storage in production)
+uploads/
+public/uploads/
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Environment files (use Vercel's environment variables instead)
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Documentation (optional - can be included if needed)
+*.md
+!README.md
+
+# Git
+.git/
+.gitignore
+
+# Old Express server files (not needed for NestJS deployment)
+src/server.js
+src/controllers/
+src/models/
+src/routes/
+src/middleware/asyncHandler.js
+src/config/
+src/utils/*.js
+
+# Seeders and migrations (run separately if needed)
+src/seeders/

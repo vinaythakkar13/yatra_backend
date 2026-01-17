@@ -19,58 +19,24 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
       isGlobal: true,
       envFilePath: '.env',
     }),
-    // TypeOrmModule.forRootAsync({
-    //   imports: [ConfigModule],
-    //   useFactory: (configService: ConfigService) => ({
-    //     type: 'mysql',
-    //     host: configService.get<string>('DB_HOST') || 'localhost',
-    //     port: configService.get<number>('DB_PORT') || 3306,
-    //     username: configService.get<string>('DB_USER') || 'root',
-    //     password: configService.get<string>('DB_PASSWORD') || '',
-    //     database: configService.get<string>('DB_NAME') || 'yatra_db',
-    //     entities: [__dirname + '/**/*.entity{.ts,.js}'],
-    //     synchronize: false, // Disabled: tables already exist from Sequelize migrations
-    //     logging: configService.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
-    //     extra: {
-    //       connectionLimit: configService.get<string>('NODE_ENV') === 'production' ? 10 : 5,
-    //     },
-    //   }),
-    //   inject: [ConfigService],
-    // }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const dbHost = configService.get<string>('DB_HOST') || 'localhost';
-        const dbPort = configService.get<number>('DB_PORT') || 3306;
-        const dbUser = configService.get<string>('DB_USER') || 'root';
-        const dbPassword = configService.get<string>('DB_PASSWORD') || '';
-        const dbName = configService.get<string>('DB_NAME') || 'yatra_db';
-        const nodeEnv = configService.get<string>('NODE_ENV');
-
-
-        return {
-          type: 'mysql',
-          host: dbHost,
-          port: dbPort,
-          username: dbUser,
-          password: dbPassword,
-          database: dbName,
-          entities: [__dirname + '/**/*.entity{.ts,.js}'],
-          synchronize: false,
-          logging: nodeEnv === 'development' ? ['error', 'warn'] : false,
-          extra: {
-            connectionLimit: nodeEnv === 'production' ? 10 : 5,
-          },
-          // ✅ REQUIRED FOR AIVEN / CLOUD MYSQL
-          ssl:
-            nodeEnv === 'production'
-              ? { rejectUnauthorized: false }
-              : undefined,
-        };
-      },
+      useFactory: (configService: ConfigService) => ({
+        type: 'mysql',
+        host: configService.get<string>('DB_HOST') || 'localhost',
+        port: configService.get<number>('DB_PORT') || 3306,
+        username: configService.get<string>('DB_USER') || 'root',
+        password: configService.get<string>('DB_PASSWORD') || '',
+        database: configService.get<string>('DB_NAME') || 'yatra_db',
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        synchronize: false, // Disabled: tables already exist from Sequelize migrations
+        logging: configService.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
+        extra: {
+          connectionLimit: configService.get<string>('NODE_ENV') === 'production' ? 10 : 5,
+        },
+      }),
       inject: [ConfigService],
     }),
-
     AuthModule,
     HotelsModule,
     UsersModule,
@@ -95,4 +61,4 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
