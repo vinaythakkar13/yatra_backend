@@ -85,13 +85,14 @@ async function createApp(): Promise<Express> {
       return envOrigins.split(',').map(o => o.trim());
     }
 
-    // Default origins for development
+    // Default origins for development and production
     return [
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
-      'https://yatra-kappa.vercel.app'
+      'https://yatra-kappa.vercel.app',
+      'https://yatra-backend.vercel.app'
     ];
   };
 
@@ -101,14 +102,14 @@ async function createApp(): Promise<Express> {
 
       console.log(`🌍 Incoming request from origin: ${origin || '[server-to-server]'}`);
 
-      // Allow requests without origin (server-to-server, Postman, curl)
-      if (!origin) {
-        return callback(null, true);
-      }
+      // Check if origin is in allowed list or is local
+      const isAllowed = !origin ||
+        allowedOrigins.includes(origin) ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1');
 
-      // Check if origin is in allowed list
-      if (allowedOrigins.includes(origin)) {
-        console.log(`✅ CORS allowed for origin: ${origin}`);
+      if (isAllowed) {
+        console.log(`✅ CORS allowed for origin: ${origin || '[none]'}`);
         return callback(null, true);
       }
 
@@ -132,11 +133,14 @@ async function createApp(): Promise<Express> {
       'sec-ch-ua',
       'sec-ch-ua-mobile',
       'sec-ch-ua-platform',
+      'sec-fetch-dest',
+      'sec-fetch-mode',
+      'sec-fetch-site',
       'Accept-Language',
       'Accept-Encoding',
     ],
     exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
-    maxAge: 3600, // 1 hour preflight cache
+    maxAge: 86400, // 24 hours preflight cache
   });
 
   // ============================================
@@ -244,17 +248,25 @@ export default async function handler(req: Request, res: Response): Promise<void
         'http://localhost:3001',
         'http://localhost:5173',
         'http://127.0.0.1:3000',
-        'https://yatra-kappa.vercel.app'
+        'https://yatra-kappa.vercel.app',
+        'https://yatra-backend.vercel.app'
       ];
 
-      if (origin && allowedOrigins.includes(origin)) {
+      const isAllowed = !origin ||
+        (typeof origin === 'string' && (
+          allowedOrigins.includes(origin) ||
+          origin.includes('localhost') ||
+          origin.includes('127.0.0.1')
+        ));
+
+      if (isAllowed && origin) {
         res.setHeader('Access-Control-Allow-Origin', origin);
       } else {
         res.setHeader('Access-Control-Allow-Origin', '*');
       }
 
       res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform, sec-fetch-dest, sec-fetch-mode, sec-fetch-site');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
 
       res.status(500).json({
