@@ -49,7 +49,7 @@ async function createApp(): Promise<Express> {
 
   // Create NestJS application with Express adapter
   const app = await NestFactory.create(AppModule, adapter, {
-    bodyParser: true,
+    bodyParser: false,
     rawBody: false,
   });
 
