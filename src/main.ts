@@ -6,11 +6,15 @@ import { setupApp } from './setup';
 import express, { Express } from 'express';
 
 // Create the Express instance
-const server: Express = express();
+const expressApp: Express = express();
 
 /**
- * Thie function initializes the NestJS application on an existing Express instance.
- * It is designed to be used by Vercel's serverless runtime.
+ * Creates and initializes the NestJS application.
+ * This function uses ExpressAdapter to integrate NestJS with Express.
+ * Designed for Vercel's serverless runtime - NO app.listen() is called.
+ * 
+ * @param expressInstance - The Express instance to attach NestJS to
+ * @returns Promise<INestApplication> - The initialized NestJS application
  */
 export async function createNestApp(expressInstance: Express): Promise<INestApplication> {
   const app = await NestFactory.create(
@@ -22,14 +26,17 @@ export async function createNestApp(expressInstance: Express): Promise<INestAppl
     }
   );
 
+  // Setup all middleware, CORS, validation, Swagger, etc.
   setupApp(app);
+
+  // Initialize the app (this connects all routes but does NOT listen)
   await app.init();
+
   return app;
 }
 
 /**
- * Vercel's @vercel/node runtime expects a default export function (req, res) => ...
- * Since we are using an existing Express instance for routing, we export the server
- * so it can be used in the entry point.
+ * Exports the Express instance for use in the serverless handler.
+ * This is passed to createNestApp() where NestJS attaches itself.
  */
-export { server };
+export { expressApp };
