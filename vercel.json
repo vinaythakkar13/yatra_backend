@@ -3,13 +3,9 @@
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/index.ts",
-      "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+      "dest": "/api/index.ts"
     }
   ],
-  "env": {
-    "NODE_ENV": "production"
-  },
   "functions": {
     "api/index.ts": {
       "maxDuration": 30,
