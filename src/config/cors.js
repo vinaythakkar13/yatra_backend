@@ -1,13 +1,19 @@
+const envOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) : [];
+
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:5000',
   'http://localhost:3001',
+  ...envOrigins
 ];
+
+// Remove duplicates and empty strings
+const uniqueOrigins = [...new Set(allowedOrigins.filter(Boolean))];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || uniqueOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.warn(`❌ CORS blocked origin: ${origin}`);
@@ -37,6 +43,10 @@ const corsOptions = {
     'sec-ch-ua',
     'sec-ch-ua-mobile',
     'sec-ch-ua-platform',
+    'sec-fetch-dest',
+    'sec-fetch-mode',
+    'sec-fetch-site',
+    'sec-fetch-user',
     'Accept-Language',
     'Accept-Encoding',
   ]
@@ -44,7 +54,7 @@ const corsOptions = {
 
 const logCorsConfig = () => {
   console.log('\n🛡 Effective CORS Allowed Origins:');
-  allowedOrigins.forEach(o => console.log(`  ✔ ${o}`));
+  uniqueOrigins.forEach(o => console.log(`  ✔ ${o}`));
 };
 
 const corsErrorHandler = (err, req, res, next) => {

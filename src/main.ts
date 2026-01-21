@@ -15,7 +15,11 @@ async function bootstrap() {
   expressApp.use(require('express').urlencoded({ extended: true, limit: '20mb' }));
 
   // CORS Configuration
-  const corsOrigins = process.env.CORS_ORIGIN?.split(',') || '*';
+  const rawOrigins = process.env.CORS_ORIGIN;
+  const corsOrigins = rawOrigins
+    ? rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
+    : '*';
+
   app.enableCors({
     origin: corsOrigins === '*' ? true : corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -32,10 +36,15 @@ async function bootstrap() {
       'sec-ch-ua',
       'sec-ch-ua-mobile',
       'sec-ch-ua-platform',
+      'sec-fetch-dest',
+      'sec-fetch-mode',
+      'sec-fetch-site',
+      'sec-fetch-user',
       'Accept-Language',
       'Accept-Encoding',
     ],
     credentials: true,
+    maxAge: 86400, // Cache preflight for 24 hours
   });
 
   // Global validation pipe

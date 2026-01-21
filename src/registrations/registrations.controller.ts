@@ -26,7 +26,7 @@ import { Roles } from '../auth/guards/roles.guard';
 @ApiTags('Registrations')
 @Controller('registrations')
 export class RegistrationsController {
-  constructor(private readonly registrationsService: RegistrationsService) {}
+  constructor(private readonly registrationsService: RegistrationsService) { }
 
   /**
    * Extract and sanitize IP address from request
@@ -142,8 +142,6 @@ export class RegistrationsController {
   }
 
   @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Cancel registration' })
   @ApiResponse({ status: 200, description: 'Registration cancelled successfully' })
   @ApiResponse({ status: 400, description: 'Cannot cancel registration' })

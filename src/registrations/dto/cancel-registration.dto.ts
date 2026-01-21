@@ -1,9 +1,9 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CancelRegistrationDto {
-  @ApiProperty({ example: 'Change of plans' })
+  @ApiProperty({ example: 'Change of plans', required: false })
   @IsString()
-  @IsNotEmpty()
-  reason: string;
+  @IsOptional()
+  reason?: string;
 }

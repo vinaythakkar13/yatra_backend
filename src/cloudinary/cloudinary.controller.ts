@@ -6,12 +6,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @ApiTags('Cloudinary')
 @Controller('cloudinary')
-@UseGuards(JwtAuthGuard)
-@ApiBearerAuth()
 export class CloudinaryController {
-  constructor(private readonly cloudinaryService: CloudinaryService) {}
+  constructor(private readonly cloudinaryService: CloudinaryService) { }
 
   @Post('upload-base64')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Upload image from base64 string' })
   @ApiResponse({ status: 200, description: 'Image uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Invalid base64 string' })
@@ -32,6 +32,8 @@ export class CloudinaryController {
   }
 
   @Post('upload-url')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Upload image from URL' })
   @ApiResponse({ status: 200, description: 'Image uploaded successfully' })
   @ApiResponse({ status: 400, description: 'Invalid URL' })
@@ -40,6 +42,29 @@ export class CloudinaryController {
     return {
       success: true,
       message: 'Image uploaded successfully',
+      data: result.data,
+    };
+  }
+
+  @Post('upload-ticket')
+  @ApiOperation({ summary: 'Public endpoint to upload ticket images from base64 (No token required)' })
+  @ApiResponse({ status: 200, description: 'Ticket uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  async uploadTicket(@Body() uploadDto: UploadBase64Dto) {
+    // For tickets, we enforce the folder if not provided
+    const folder = uploadDto.folder || 'yatras/tickets';
+
+    const result = await this.cloudinaryService.uploadBase64(
+      uploadDto.base64Image,
+      folder,
+      {
+        public_id: uploadDto.public_id,
+        tags: [...(uploadDto.tags || []), 'ticket', 'public-upload'],
+      },
+    );
+    return {
+      success: true,
+      message: 'Ticket uploaded successfully',
       data: result.data,
     };
   }

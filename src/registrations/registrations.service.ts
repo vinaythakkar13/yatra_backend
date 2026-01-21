@@ -38,7 +38,7 @@ export class RegistrationsService {
     @InjectRepository(RegistrationLog)
     private logRepository: Repository<RegistrationLog>,
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async create(createDto: CreateRegistrationDto, userId?: string, ipAddress?: string, userAgent?: string) {
     // Verify yatra exists
@@ -321,7 +321,7 @@ export class RegistrationsService {
     const oldValues = { ...registration };
 
     registration.status = RegistrationStatus.CANCELLED;
-    registration.cancellation_reason = cancelDto.reason;
+    registration.cancellation_reason = cancelDto.reason || null;
     registration.cancelled_at = new Date();
 
     const savedRegistration = await this.registrationRepository.save(registration);
@@ -334,7 +334,8 @@ export class RegistrationsService {
       userId ? ChangedByType.ADMIN : ChangedByType.USER,
       oldValues,
       savedRegistration,
-      cancelDto.reason,
+      cancelDto.reason || 'No reason provided',
+      null,
       ipAddress ?? undefined,
       userAgent ?? undefined,
     );

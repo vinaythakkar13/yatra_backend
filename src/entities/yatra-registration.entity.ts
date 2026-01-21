@@ -70,7 +70,7 @@ export class YatraRegistration {
   status: RegistrationStatus;
 
   @Column({ type: 'text', nullable: true, name: 'cancellation_reason' })
-  cancellation_reason: string;
+  cancellation_reason: string | null;
 
   @Column({ type: 'text', nullable: true, name: 'admin_comments' })
   admin_comments: string;
@@ -93,18 +93,18 @@ export class YatraRegistration {
   @Column({ type: 'datetime', nullable: true, name: 'cancelled_at' })
   cancelled_at: Date;
 
-  @Column({ 
-    type: 'datetime', 
-    name: 'created_at', 
+  @Column({
+    type: 'datetime',
+    name: 'created_at',
     default: () => 'CURRENT_TIMESTAMP',
     insert: false,
     update: false
   })
   created_at: Date;
 
-  @Column({ 
-    type: 'datetime', 
-    name: 'updated_at', 
+  @Column({
+    type: 'datetime',
+    name: 'updated_at',
     default: () => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
     insert: false
   })
