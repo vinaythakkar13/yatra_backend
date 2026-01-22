@@ -39,54 +39,16 @@ const getActiveYatrasController = async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Set to start of day for accurate date comparison
-    
-    // First, let's check if there are any yatras at all
-    const allYatras = await Yatra.findAll({ limit: 5 });
-    console.log('Total yatras in database:', allYatras.length);
-    if (allYatras.length > 0) {
-      console.log('Sample yatra dates:', {
-        end_date: allYatras[0].end_date,
-        registration_start_date: allYatras[0].registration_start_date,
-        registration_end_date: allYatras[0].registration_end_date,
-        today: today,
-        end_date_type: typeof allYatras[0].end_date,
-        end_date_value: allYatras[0].end_date?.toString()
-      });
-    }
-    
-    // Try a simpler query first: just yatras that haven't ended
-    const futureYatras = await Yatra.findAll({ 
-      where: { 
+
+    // Return all future yatras (haven't ended yet)
+    // This includes yatras with any registration status
+    const activeYatras = await Yatra.findAll({
+      where: {
         end_date: { [Op.gte]: today }
       },
-      limit: 10
+      order: [['start_date', 'ASC']]
     });
-    console.log('Yatras that haven\'t ended:', futureYatras.length);
-    
-    // Active yatras: registration is open AND yatra hasn't ended yet
-    // - Yatra hasn't ended: end_date >= today
-    // - Registration is open: registration_start_date <= today AND registration_end_date >= today
-    const activeYatras = await Yatra.findAll({ 
-      where: { 
-        // Yatra hasn't ended yet
-        end_date: { [Op.gte]: today },
-        // Registration has started
-        registration_start_date: { [Op.lte]: today },
-        // Registration hasn't ended
-        registration_end_date: { [Op.gte]: today }
-      },
-      order: [['start_date', 'ASC']] // Order by start date, earliest first
-    });
-    
-    console.log('Active yatras found (with registration check):', activeYatras.length);
-    
-    // If no active yatras with registration check, return future yatras as fallback
-    // This helps debug if the issue is with registration dates
-    if (activeYatras.length === 0 && futureYatras.length > 0) {
-      console.log('No yatras with open registration, but found future yatras. Returning future yatras.');
-      return successResponse(res, futureYatras, 'Active yatras fetched successfully');
-    }
-    
+
     return successResponse(res, activeYatras, 'Active yatras fetched successfully');
   } catch (error) {
     console.error('Error fetching active yatras:', error);

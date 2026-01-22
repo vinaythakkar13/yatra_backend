@@ -9,7 +9,7 @@ export class YatraService {
   constructor(
     @InjectRepository(Yatra)
     private yatraRepository: Repository<Yatra>,
-  ) {}
+  ) { }
 
   async findAll() {
     return await this.yatraRepository.find({
@@ -52,26 +52,14 @@ export class YatraService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Active yatras: registration is open AND yatra hasn't ended yet
+    // Return all future yatras (haven't ended yet)
+    // This includes yatras with any registration status
     const activeYatras = await this.yatraRepository.find({
       where: {
         end_date: MoreThanOrEqual(today),
-        registration_start_date: LessThanOrEqual(today),
-        registration_end_date: MoreThanOrEqual(today),
       },
       order: { start_date: 'ASC' },
     });
-
-    // Fallback: If no yatras with open registration, return all future yatras
-    if (activeYatras.length === 0) {
-      const futureYatras = await this.yatraRepository.find({
-        where: {
-          end_date: MoreThanOrEqual(today),
-        },
-        order: { start_date: 'ASC' },
-      });
-      return futureYatras;
-    }
 
     return activeYatras;
   }
