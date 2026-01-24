@@ -24,6 +24,9 @@ export class Yatra {
   @Column({ type: 'varchar', length: 500 })
   banner_image: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  mobile_banner_image: string;
+
   @Column({ type: 'datetime' })
   start_date: Date;
 

@@ -12,6 +12,11 @@ export class CreateYatraDto {
   @IsNotEmpty()
   banner_image: string;
 
+  @ApiPropertyOptional({ example: 'https://example.com/mobile-banner.jpg' })
+  @IsOptional()
+  @IsString()
+  mobile_banner_image?: string;
+
   @ApiProperty({ example: '2025-11-01T00:00:00.000Z' })
   @IsDateString()
   start_date: string;

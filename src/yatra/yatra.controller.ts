@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Delete,
   Body,
   Param,
@@ -10,6 +11,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { YatraService } from './yatra.service';
 import { CreateYatraDto } from './dto/create-yatra.dto';
+import { UpdateYatraDto } from './dto/update-yatra.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -70,6 +72,22 @@ export class YatraController {
     return {
       success: true,
       message: 'Yatra created successfully',
+      data: yatra,
+    };
+  }
+
+  @Put('update-yatra/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update yatra' })
+  @ApiResponse({ status: 200, description: 'Yatra updated successfully' })
+  @ApiResponse({ status: 404, description: 'Yatra not found' })
+  async updateYatra(@Param('id') id: string, @Body() updateYatraDto: UpdateYatraDto) {
+    const yatra = await this.yatraService.update(id, updateYatraDto);
+    return {
+      success: true,
+      message: 'Yatra updated successfully',
       data: yatra,
     };
   }
