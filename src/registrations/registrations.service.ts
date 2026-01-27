@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, DataSource, Like, Or } from 'typeorm';
+import { Repository, FindOptionsWhere, DataSource, Like, Or, Not } from 'typeorm';
 import { YatraRegistration, RegistrationStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
 import { User } from '../entities/user.entity';
@@ -49,12 +49,16 @@ export class RegistrationsService {
 
     // Registration date validation removed - allowing registrations at any time
 
-    // Check if PNR already registered for this yatra
+    // Check if PNR already registered for this yatra (and is not cancelled)
     const existingRegistration = await this.registrationRepository.findOne({
-      where: { pnr: createDto.pnr, yatra_id: createDto.yatraId },
+      where: {
+        pnr: createDto.pnr,
+        yatra_id: createDto.yatraId,
+        status: Not(RegistrationStatus.CANCELLED)
+      },
     });
     if (existingRegistration) {
-      throw new BadRequestException('PNR already registered for this yatra');
+      throw new BadRequestException('PNR already registered for this yatra and is currently active');
     }
 
     // Find or create user
@@ -89,6 +93,7 @@ export class RegistrationsService {
       user.arrival_date = new Date(createDto.arrivalDate);
       user.return_date = new Date(createDto.returnDate);
       user.ticket_images = createDto.ticketImages || [];
+      user.registration_status = 'pending' as any;
       await this.userRepository.save(user);
     }
 
@@ -325,6 +330,15 @@ export class RegistrationsService {
     registration.cancelled_at = new Date();
 
     const savedRegistration = await this.registrationRepository.save(registration);
+
+    // Update user status
+    if (registration.user_id) {
+      const user = await this.userRepository.findOne({ where: { id: registration.user_id } });
+      if (user) {
+        user.registration_status = 'cancelled' as any;
+        await this.userRepository.save(user);
+      }
+    }
 
     // Create audit log
     await this.createLog(

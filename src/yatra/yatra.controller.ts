@@ -19,7 +19,7 @@ import { Roles } from '../auth/guards/roles.guard';
 @ApiTags('Yatra')
 @Controller('yatra')
 export class YatraController {
-  constructor(private readonly yatraService: YatraService) {}
+  constructor(private readonly yatraService: YatraService) { }
 
   @Get('get-all-yatras')
   @UseGuards(JwtAuthGuard, RolesGuard)

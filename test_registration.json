@@ -1,0 +1,20 @@
+{
+    "yatraId": "2fa512ec-e09a-4f92-92de-349498b6aaa5",
+    "pnr": "TVERIFY123",
+    "name": "Test User",
+    "whatsappNumber": "1234567890",
+    "numberOfPersons": 1,
+    "boardingPoint": {
+        "city": "Lucknow",
+        "state": "Uttar Pradesh"
+    },
+    "arrivalDate": "2026-03-24",
+    "returnDate": "2026-03-26",
+    "persons": [
+        {
+            "name": "Test User",
+            "age": 30,
+            "gender": "male"
+        }
+    ]
+}

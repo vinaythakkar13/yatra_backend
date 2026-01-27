@@ -1,11 +1,13 @@
 # Yatra Update Endpoint - CURL Examples
 
 ## Base URL
+
 ```
 http://localhost:3000/api/yatra
 ```
 
 ## 1. Update Full Yatra (All Fields)
+
 ```bash
 curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
   -H "Content-Type: application/json" \
@@ -23,6 +25,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## 2. Update Only Mobile Banner Image (Partial Update)
+
 ```bash
 curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
   -H "Content-Type: application/json" \
@@ -33,6 +36,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## 3. Update Name and Banner Images Only
+
 ```bash
 curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
   -H "Content-Type: application/json" \
@@ -45,6 +49,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## 4. Update Dates Only
+
 ```bash
 curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
   -H "Content-Type: application/json" \
@@ -58,6 +63,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## 5. Update Description Only
+
 ```bash
 curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
   -H "Content-Type: application/json" \
@@ -68,6 +74,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## Response Format (Success)
+
 ```json
 {
   "success": true,
@@ -89,6 +96,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## Response Format (Error - Yatra Not Found)
+
 ```json
 {
   "message": "Yatra not found",
@@ -98,6 +106,7 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 ```
 
 ## Important Notes
+
 - Replace `{yatraId}` with the actual yatra UUID
 - Replace `{YOUR_JWT_TOKEN}` with your actual JWT authentication token
 - All fields are optional - send only the fields you want to update
@@ -108,28 +117,32 @@ curl -X PUT http://localhost:3000/api/yatra/update-yatra/{yatraId} \
 - Content-Type header must be `application/json`
 
 ## JavaScript/Fetch Example
+
 ```javascript
-const yatraId = '550e8400-e29b-41d4-a716-446655440000';
-const token = 'YOUR_JWT_TOKEN';
+const yatraId = "550e8400-e29b-41d4-a716-446655440000";
+const token = "YOUR_JWT_TOKEN";
 
 const updateYatra = async () => {
   try {
-    const response = await fetch(`http://localhost:3000/api/yatra/update-yatra/${yatraId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+    const response = await fetch(
+      `http://localhost:3000/api/yatra/update-yatra/${yatraId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          mobile_banner_image: "https://example.com/new-mobile-banner.jpg",
+          description: "Updated description",
+        }),
       },
-      body: JSON.stringify({
-        mobile_banner_image: 'https://example.com/new-mobile-banner.jpg',
-        description: 'Updated description'
-      })
-    });
+    );
 
     const result = await response.json();
     console.log(result);
   } catch (error) {
-    console.error('Error:', error);
+    console.error("Error:", error);
   }
 };
 
@@ -137,24 +150,27 @@ updateYatra();
 ```
 
 ## Axios Example
+
 ```javascript
-const axios = require('axios');
+const axios = require("axios");
 
-const yatraId = '550e8400-e29b-41d4-a716-446655440000';
-const token = 'YOUR_JWT_TOKEN';
+const yatraId = "550e8400-e29b-41d4-a716-446655440000";
+const token = "YOUR_JWT_TOKEN";
 
-axios.put(`http://localhost:3000/api/yatra/update-yatra/${yatraId}`, 
-  {
-    mobile_banner_image: 'https://example.com/new-mobile-banner.jpg',
-    description: 'Updated description'
-  },
-  {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
-  }
-)
-.then(response => console.log(response.data))
-.catch(error => console.error('Error:', error));
+axios
+  .put(
+    `http://localhost:3000/api/yatra/update-yatra/${yatraId}`,
+    {
+      mobile_banner_image: "https://example.com/new-mobile-banner.jpg",
+      description: "Updated description",
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    },
+  )
+  .then((response) => console.log(response.data))
+  .catch((error) => console.error("Error:", error));
 ```
