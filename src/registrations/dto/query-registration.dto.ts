@@ -3,6 +3,12 @@ import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { RegistrationStatus } from '../../entities/yatra-registration.entity';
 
+export enum RegistrationFilterMode {
+  ALL = 'all',
+  GENERAL = 'general',
+  CANCELLED = 'cancelled',
+}
+
 export class QueryRegistrationDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
@@ -38,4 +44,9 @@ export class QueryRegistrationDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ enum: RegistrationFilterMode, default: RegistrationFilterMode.ALL, description: 'Filter by mode' })
+  @IsOptional()
+  @IsEnum(RegistrationFilterMode)
+  filterMode?: RegistrationFilterMode = RegistrationFilterMode.ALL;
 }

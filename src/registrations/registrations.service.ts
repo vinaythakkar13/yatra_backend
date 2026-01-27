@@ -17,7 +17,7 @@ import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
-import { QueryRegistrationDto } from './dto/query-registration.dto';
+import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-registration.dto';
 import { Gender } from '../entities/user.entity';
 
 @Injectable()
@@ -153,9 +153,17 @@ export class RegistrationsService {
     if (query.yatraId) {
       baseWhere.yatra_id = query.yatraId;
     }
-    if (query.status) {
+
+    // Handle filterMode
+    if (query.filterMode === RegistrationFilterMode.GENERAL) {
+      baseWhere.status = Not(RegistrationStatus.CANCELLED);
+    } else if (query.filterMode === RegistrationFilterMode.CANCELLED) {
+      baseWhere.status = RegistrationStatus.CANCELLED;
+    } else if (query.status) {
+      // If status is explicitly provided, it overrides filterMode (or is used when filterMode is 'all')
       baseWhere.status = query.status;
     }
+
     if (query.pnr) {
       baseWhere.pnr = query.pnr;
     }
