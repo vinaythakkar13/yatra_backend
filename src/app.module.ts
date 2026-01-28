@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { YatraModule } from './yatra/yatra.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { RegistrationsModule } from './registrations/registrations.module';
+import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -43,6 +44,7 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
     YatraModule,
     CloudinaryModule,
     RegistrationsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
@@ -61,4 +63,4 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }
