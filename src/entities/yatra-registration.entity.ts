@@ -10,7 +10,8 @@ import {
 import { User } from './user.entity';
 import { Yatra } from './yatra.entity';
 import { Person } from './person.entity';
-import { RegistrationLog } from './registration-log.entity';
+import { RegistrationLog, RegistrationAction, ChangedByType } from './registration-log.entity';
+import { TicketType } from '../registrations/enums/ticket-type.enum';
 
 export enum RegistrationStatus {
   PENDING = 'pending',
@@ -35,8 +36,16 @@ export class YatraRegistration {
   @Column({ type: 'uuid', name: 'yatra_id' })
   yatra_id: string;
 
-  @Column({ type: 'varchar', length: 10, name: 'pnr' })
+  @Column({ type: 'varchar', length: 12, name: 'pnr' })
   pnr: string;
+
+  @Column({
+    type: 'enum',
+    enum: TicketType,
+    nullable: true,
+    name: 'ticket_type'
+  })
+  ticket_type: TicketType | null;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;

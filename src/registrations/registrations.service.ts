@@ -18,7 +18,9 @@ import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
 import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-registration.dto';
+import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
 import { Gender } from '../entities/user.entity';
+import { TicketType } from './enums/ticket-type.enum';
 
 @Injectable()
 export class RegistrationsService {
@@ -41,6 +43,9 @@ export class RegistrationsService {
   ) { }
 
   async create(createDto: CreateRegistrationDto, userId?: string, ipAddress?: string, userAgent?: string) {
+    // Normalize PNR to uppercase
+    createDto.pnr = createDto.pnr.toUpperCase();
+
     // Verify yatra exists
     const yatra = await this.yatraRepository.findOne({ where: { id: createDto.yatraId } });
     if (!yatra) {
@@ -110,6 +115,7 @@ export class RegistrationsService {
       arrival_date: new Date(createDto.arrivalDate),
       return_date: new Date(createDto.returnDate),
       ticket_images: createDto.ticketImages || [],
+      ticket_type: createDto.ticketType || null,
       status: RegistrationStatus.PENDING,
     });
 
@@ -165,7 +171,7 @@ export class RegistrationsService {
     }
 
     if (query.pnr) {
-      baseWhere.pnr = query.pnr;
+      baseWhere.pnr = query.pnr.toUpperCase();
     }
 
     // Handle search with OR conditions across name, PNR, and WhatsApp number
@@ -253,6 +259,7 @@ export class RegistrationsService {
     if (updateDto.arrivalDate) registration.arrival_date = new Date(updateDto.arrivalDate);
     if (updateDto.returnDate) registration.return_date = new Date(updateDto.returnDate);
     if (updateDto.ticketImages !== undefined) registration.ticket_images = updateDto.ticketImages;
+    if (updateDto.ticketType !== undefined) registration.ticket_type = updateDto.ticketType;
 
     // If status was APPROVED, change back to PENDING after update
     if (registration.status === RegistrationStatus.APPROVED) {
@@ -528,9 +535,10 @@ export class RegistrationsService {
   }
 
   async getByPnr(pnr: string) {
+    const normalizedPnr = pnr.toUpperCase();
     // Find registration by PNR
     const registration = await this.registrationRepository.findOne({
-      where: { pnr },
+      where: { pnr: normalizedPnr },
       relations: {
         user: {
           assignedRoom: {
@@ -566,6 +574,7 @@ export class RegistrationsService {
         cancellation_reason: registration.cancellation_reason,
         admin_comments: registration.admin_comments,
         rejection_reason: registration.rejection_reason,
+        ticket_type: registration.ticket_type,
         created_at: registration.created_at,
         updated_at: registration.updated_at,
       },
@@ -628,5 +637,36 @@ export class RegistrationsService {
     }
 
     return response;
+  }
+
+  async updateTicketType(
+    id: string,
+    updateDto: UpdateTicketTypeDto,
+    userId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const registration = await this.findOne(id);
+
+    const oldValues = { ...registration };
+    registration.ticket_type = updateDto.ticketType;
+
+    const savedRegistration = await this.registrationRepository.save(registration);
+
+    // Create audit log
+    await this.createLog(
+      id,
+      RegistrationAction.UPDATED,
+      userId,
+      userId ? ChangedByType.ADMIN : ChangedByType.USER,
+      oldValues,
+      savedRegistration,
+      `Ticket type updated to ${updateDto.ticketType}`,
+      null,
+      ipAddress ?? undefined,
+      userAgent ?? undefined,
+    );
+
+    return this.findOne(id);
   }
 }

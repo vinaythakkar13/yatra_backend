@@ -9,10 +9,12 @@ import {
   IsOptional,
   IsBoolean,
   Matches,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender } from '../../entities/user.entity';
+import { TicketType } from '../enums/ticket-type.enum';
 
 class PersonDto {
   @ApiPropertyOptional({ example: 'Vinay Thakkar' })
@@ -33,10 +35,10 @@ class PersonDto {
   @IsNotEmpty()
   gender?: Gender;
 
-  @ApiPropertyOptional({ 
-    default: false, 
+  @ApiPropertyOptional({
+    default: false,
     description: 'Whether the person is handicapped. If not provided, defaults to false.',
-    example: false 
+    example: false
   })
   @IsOptional()
   @IsBoolean()
@@ -104,4 +106,13 @@ export class UpdateRegistrationDto {
   @IsArray()
   @IsString({ each: true })
   ticketImages?: string[];
+
+  @ApiPropertyOptional({
+    enum: TicketType,
+    example: TicketType.FIRST_AC,
+    description: 'Type of ticket/booking'
+  })
+  @IsOptional()
+  @IsEnum(TicketType)
+  ticketType?: TicketType;
 }

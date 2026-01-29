@@ -58,7 +58,7 @@ export class User {
   @Column({ type: 'int', name: 'number_of_persons' })
   number_of_persons: number;
 
-  @Column({ type: 'varchar', length: 10, unique: true })
+  @Column({ type: 'varchar', length: 12, unique: true })
   pnr: string;
 
   @Column({ type: 'varchar', length: 100, name: 'boarding_state' })

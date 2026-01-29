@@ -10,10 +10,12 @@ import {
   IsOptional,
   IsBoolean,
   Matches,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Gender } from '../../entities/user.entity';
+import { TicketType } from '../enums/ticket-type.enum';
 
 class PersonDto {
   @ApiProperty({ example: 'Vinay Thakkar' })
@@ -31,10 +33,10 @@ class PersonDto {
   @IsNotEmpty()
   gender: Gender;
 
-  @ApiPropertyOptional({ 
-    default: false, 
+  @ApiPropertyOptional({
+    default: false,
     description: 'Whether the person is handicapped. If not provided, defaults to false.',
-    example: false 
+    example: false
   })
   @IsOptional()
   @IsBoolean()
@@ -54,11 +56,23 @@ class BoardingPointDto {
 }
 
 export class CreateRegistrationDto {
-  @ApiProperty({ example: '4829635210' })
+  @ApiProperty({
+    example: 'PNR123456',
+    description: 'PNR number (6-12 characters, alphanumeric, case-insensitive)'
+  })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[0-9]{10}$/, { message: 'PNR must be exactly 10 digits' })
+  @Matches(/^[A-Z0-9]{6,12}$/i, { message: 'PNR must be 6-12 alphanumeric characters' })
   pnr: string;
+
+  @ApiPropertyOptional({
+    enum: TicketType,
+    example: TicketType.FLIGHT,
+    description: 'Type of ticket/booking. If not provided, it will be null.'
+  })
+  @IsOptional()
+  @IsEnum(TicketType)
+  ticketType?: TicketType;
 
   @ApiProperty({ example: 'Vinay Thakkar' })
   @IsString()

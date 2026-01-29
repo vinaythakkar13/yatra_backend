@@ -5,6 +5,7 @@ import {
   Put,
   Body,
   Param,
+  Patch,
   Query,
   UseGuards,
   Request,
@@ -19,6 +20,7 @@ import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
 import { QueryRegistrationDto } from './dto/query-registration.dto';
 import { GetByPnrDto } from './dto/get-by-pnr.dto';
+import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -266,6 +268,37 @@ export class RegistrationsController {
       success: true,
       message: 'Registration details retrieved successfully',
       data: result,
+    };
+  }
+
+  @Patch(':id/ticket-type')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update registration ticket type (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Ticket type updated successfully' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async updateTicketType(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() updateDto: UpdateTicketTypeDto,
+  ) {
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers['user-agent'];
+    const adminId = req.admin?.id;
+
+    const registration = await this.registrationsService.updateTicketType(
+      id,
+      updateDto,
+      adminId,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: true,
+      message: 'Ticket type updated successfully',
+      data: registration,
     };
   }
 }
