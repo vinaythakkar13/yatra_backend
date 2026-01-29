@@ -192,7 +192,6 @@ export class RegistrationsService {
         user: true,
         yatra: true,
         persons: true,
-        logs: true,
       },
       skip,
       take: limit,
@@ -217,7 +216,6 @@ export class RegistrationsService {
         user: true,
         yatra: true,
         persons: true,
-        logs: true,
       },
     });
 
@@ -486,29 +484,39 @@ export class RegistrationsService {
   ) {
     // Serialize objects to plain JSON to avoid circular references and TypeORM metadata
     const serializeValue = (value: any): any => {
-      if (value === null || value === undefined) {
-        return null;
-      }
-      if (typeof value === 'object') {
-        // Extract only the data properties, excluding TypeORM metadata
+      const seen = new WeakSet();
+
+      const internalSerialize = (val: any, depth = 0): any => {
+        if (val === null || val === undefined) return null;
+        if (val instanceof Date) return val.toISOString();
+        if (typeof val !== 'object') return val;
+
+        // Prevent infinite recursion and circular references
+        if (seen.has(val)) return '[Circular]';
+        seen.add(val);
+
+        // Limit depth to prevent huge objects and potential hangs
+        if (depth > 3) return '[Max Depth Reached]';
+
+        if (Array.isArray(val)) {
+          return val.map(item => internalSerialize(item, depth + 1));
+        }
+
         const plain: any = {};
-        for (const key in value) {
-          if (key.startsWith('_') || key === 'constructor') {
-            continue; // Skip TypeORM internal properties
-          }
-          const val = value[key];
-          if (val !== null && typeof val === 'object' && !(val instanceof Date) && !Array.isArray(val)) {
-            // Recursively serialize nested objects
-            plain[key] = serializeValue(val);
-          } else if (val instanceof Date) {
-            plain[key] = val.toISOString();
-          } else {
-            plain[key] = val;
+        for (const key in val) {
+          // Skip internal TypeORM properties and circular references
+          if (key.startsWith('_') || key === 'constructor') continue;
+
+          try {
+            plain[key] = internalSerialize(val[key], depth + 1);
+          } catch (e) {
+            plain[key] = '[Error Serializing]';
           }
         }
         return plain;
-      }
-      return value;
+      };
+
+      return internalSerialize(value);
     };
 
     // Ensure IP address is truncated to 128 characters (database column limit)
@@ -646,14 +654,21 @@ export class RegistrationsService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const registration = await this.findOne(id);
+    // Load only the registration without relations to avoid deep serialization and performance issues
+    const registration = await this.registrationRepository.findOne({
+      where: { id }
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
 
     const oldValues = { ...registration };
     registration.ticket_type = updateDto.ticketType;
 
     const savedRegistration = await this.registrationRepository.save(registration);
 
-    // Create audit log
+    // Create audit log - createLog's serializeValue will handle the entities
     await this.createLog(
       id,
       RegistrationAction.UPDATED,
@@ -667,6 +682,15 @@ export class RegistrationsService {
       userAgent ?? undefined,
     );
 
+    // Reload with relations (but no logs) for the final response
     return this.findOne(id);
+  }
+
+  async getLogs(id: string) {
+    const logs = await this.logRepository.find({
+      where: { registration_id: id },
+      order: { created_at: 'DESC' },
+    });
+    return logs;
   }
 }

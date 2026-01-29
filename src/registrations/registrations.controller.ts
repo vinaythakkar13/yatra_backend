@@ -250,11 +250,11 @@ export class RegistrationsController {
   @ApiResponse({ status: 200, description: 'Registration logs retrieved successfully' })
   @ApiResponse({ status: 404, description: 'Registration not found' })
   async getLogs(@Param('id') id: string) {
-    const registration = await this.registrationsService.findOne(id);
+    const logs = await this.registrationsService.getLogs(id);
     return {
       success: true,
       message: 'Registration logs retrieved successfully',
-      data: registration.logs || [],
+      data: logs,
     };
   }
 
