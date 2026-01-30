@@ -49,4 +49,14 @@ export class QueryRegistrationDto {
   @IsOptional()
   @IsEnum(RegistrationFilterMode)
   filterMode?: RegistrationFilterMode = RegistrationFilterMode.ALL;
+
+  @ApiPropertyOptional({ description: 'Filter by state' })
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by ticket type (all, TBS, Not added)' })
+  @IsOptional()
+  @IsString()
+  ticketType?: string;
 }

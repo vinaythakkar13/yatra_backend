@@ -174,6 +174,19 @@ export class RegistrationsService {
       baseWhere.pnr = query.pnr.toUpperCase();
     }
 
+    if (query.state) {
+      baseWhere.boarding_state = query.state;
+    }
+
+    if (query.ticketType) {
+      if (query.ticketType === 'TBS') {
+        baseWhere.ticket_type = 'TBS';
+      } else if (query.ticketType === 'Not added') {
+        baseWhere.ticket_type = null;
+      }
+      // If 'all', we don't add any condition for ticket_type
+    }
+
     // Handle search with OR conditions across name, PNR, and WhatsApp number
     let whereClause: any;
     if (query.search) {

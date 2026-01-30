@@ -42,7 +42,10 @@ module.exports = {
                         'SECOND_AC',
                         'THIRD_AC',
                         'SLEEPER',
-                        'GENERAL'
+                        'GENERAL',
+                        'TBS',
+                        'WL',
+                        'RAC'
                     ),
                     allowNull: true,
                     defaultValue: null,

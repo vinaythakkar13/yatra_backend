@@ -6,4 +6,7 @@ export enum TicketType {
     THIRD_AC = 'THIRD_AC',
     SLEEPER = 'SLEEPER',
     GENERAL = 'GENERAL',
+    TBS = 'TBS',
+    WL = 'WL',
+    RAC = 'RAC',
 }

@@ -103,13 +103,15 @@ export class AdminDashboardService {
                 stateGroups[stateName][cityName] = {
                     city: cityName,
                     totalCount: 0,
+                    registrationCount: 0,
                     gender: { male: 0, female: 0 },
-                    ageRanges: { "0-18": 0, "19-35": 0, "36-50": 0, "50+": 0 },
+                    ageRanges: { "0-20": 0, "21-40": 0, "41-60": 0, "61+": 0 },
                     handicappedCount: 0,
                 };
             }
 
             const cityStats = stateGroups[stateName][cityName];
+            cityStats.registrationCount++;
             const persons = reg.persons || [];
 
             persons.forEach(person => {
@@ -121,10 +123,10 @@ export class AdminDashboardService {
 
                 // City-level Age
                 const age = person.age || 0;
-                if (age <= 18) cityStats.ageRanges["0-18"]++;
-                else if (age <= 35) cityStats.ageRanges["19-35"]++;
-                else if (age <= 50) cityStats.ageRanges["36-50"]++;
-                else cityStats.ageRanges["50+"]++;
+                if (age <= 20) cityStats.ageRanges["0-20"]++;
+                else if (age <= 40) cityStats.ageRanges["21-40"]++;
+                else if (age <= 60) cityStats.ageRanges["41-60"]++;
+                else cityStats.ageRanges["61+"]++;
 
                 // City-level Handicap
                 if (person.is_handicapped) cityStats.handicappedCount++;
@@ -134,9 +136,11 @@ export class AdminDashboardService {
         const stateData = Object.entries(stateGroups).map(([state, citiesMap]) => {
             const cities = Object.values(citiesMap);
             const totalCount = cities.reduce((sum, c) => sum + c.totalCount, 0);
+            const totalRegistrations = cities.reduce((sum, c) => sum + c.registrationCount, 0);
             return {
                 state,
                 totalCount,
+                totalRegistrations,
                 cities,
             };
         });
@@ -155,15 +159,15 @@ export class AdminDashboardService {
 
         // Top-level Age Data (for the whole yatra)
         const ageData = [
-            { range: '0-18', count: 0 },
-            { range: '19-35', count: 0 },
-            { range: '36-50', count: 0 },
-            { range: '50+', count: 0 },
+            { range: '0-20', count: 0 },
+            { range: '21-40', count: 0 },
+            { range: '41-60', count: 0 },
+            { range: '61+', count: 0 },
         ];
         allPersons.forEach(p => {
-            if (p.age <= 18) ageData[0].count++;
-            else if (p.age <= 35) ageData[1].count++;
-            else if (p.age <= 50) ageData[2].count++;
+            if (p.age <= 20) ageData[0].count++;
+            else if (p.age <= 40) ageData[1].count++;
+            else if (p.age <= 60) ageData[2].count++;
             else ageData[3].count++;
         });
 
