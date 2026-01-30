@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, DataSource, Like, Or, Not } from 'typeorm';
+import { Repository, FindOptionsWhere, DataSource, Like, Or, Not, IsNull } from 'typeorm';
 import { YatraRegistration, RegistrationStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
 import { User } from '../entities/user.entity';
@@ -178,13 +178,12 @@ export class RegistrationsService {
       baseWhere.boarding_state = query.state;
     }
 
-    if (query.ticketType) {
-      if (query.ticketType === 'TBS') {
-        baseWhere.ticket_type = 'TBS';
-      } else if (query.ticketType === 'Not added') {
-        baseWhere.ticket_type = null;
+    if (query.ticketType && query.ticketType !== 'all') {
+      if (query.ticketType === 'Not added') {
+        baseWhere.ticket_type = IsNull();
+      } else {
+        baseWhere.ticket_type = query.ticketType;
       }
-      // If 'all', we don't add any condition for ticket_type
     }
 
     // Handle search with OR conditions across name, PNR, and WhatsApp number
