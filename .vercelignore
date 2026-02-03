@@ -53,12 +53,10 @@ public/uploads/
 
 # Old Express server files (not needed for NestJS deployment)
 src/server.js
-src/controllers/
-src/models/
-src/routes/
 src/middleware/asyncHandler.js
-src/config/
 src/utils/*.js
 
 # Seeders and migrations (run separately if needed)
-src/seeders/
+# src/seeders/ (removed from ignore)
+# src/config/ (removed from ignore)
+# src/models/ (removed from ignore)
