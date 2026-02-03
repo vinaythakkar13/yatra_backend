@@ -93,10 +93,18 @@ export class User {
   @Column({ type: 'boolean', default: false, name: 'is_room_assigned' })
   is_room_assigned: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @ManyToOne(() => Room, { nullable: true, onDelete: 'SET NULL' })

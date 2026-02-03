@@ -5,6 +5,8 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { YatraRegistration } from './yatra-registration.entity';
 import { Gender } from './user.entity';
@@ -33,20 +35,17 @@ export class Person {
   @Column({ type: 'boolean', default: false, name: 'is_handicapped' })
   is_handicapped: boolean;
 
-  @Column({ 
-    type: 'datetime', 
-    name: 'created_at', 
-    default: () => 'CURRENT_TIMESTAMP',
-    insert: false,
-    update: false
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
   })
   created_at: Date;
 
-  @Column({ 
-    type: 'datetime', 
-    name: 'updated_at', 
-    default: () => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
-    insert: false
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
   })
   updated_at: Date;
 

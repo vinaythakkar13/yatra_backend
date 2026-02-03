@@ -15,6 +15,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { RegistrationsService } from './registrations.service';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
+import { CreateSplitRegistrationDto } from './dto/create-split-registration.dto';
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
@@ -75,6 +76,49 @@ export class RegistrationsController {
     } catch (error: any) {
       // Log the error for debugging
       console.error('Error creating registration:', error);
+      throw error; // Re-throw to let NestJS exception filter handle it
+    }
+  }
+
+  @Post('split')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a split registration with internal PNR (Admin only)' })
+  @ApiResponse({ status: 201, description: 'Manual registration created successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input or unable to generate unique PNR' })
+  @ApiResponse({ status: 404, description: 'Yatra not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @HttpCode(HttpStatus.CREATED)
+  async createSplit(@Request() req: any, @Body() createDto: CreateSplitRegistrationDto) {
+    try {
+      const ipAddress = this.extractIpAddress(req);
+      const userAgent = req.headers['user-agent'];
+      const adminId = req.admin?.id;
+
+      if (!adminId) {
+        throw new Error('Admin authentication required');
+      }
+
+      const result = await this.registrationsService.createSplitRegistration(
+        createDto,
+        adminId,
+        ipAddress,
+        userAgent,
+      );
+
+      return {
+        success: true,
+        message: 'Manual registration created successfully',
+        data: {
+          registration: result.registration,
+          internalPnr: result.internalPnr,
+          originalPnr: result.originalPnr,
+        },
+      };
+    } catch (error: any) {
+      // Log the error for debugging
+      console.error('Error creating split registration:', error);
       throw error; // Re-throw to let NestJS exception filter handle it
     }
   }
@@ -299,6 +343,22 @@ export class RegistrationsController {
       success: true,
       message: 'Ticket type updated successfully',
       data: registration,
+    };
+  }
+
+  @Get('split-analytics/:originalPnr')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get split registration analytics by original PNR (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Split analytics retrieved successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getSplitAnalytics(@Param('originalPnr') originalPnr: string) {
+    const analytics = await this.registrationsService.getSplitCountByOriginalPnr(originalPnr);
+    return {
+      success: true,
+      message: 'Split analytics retrieved successfully',
+      data: analytics,
     };
   }
 }

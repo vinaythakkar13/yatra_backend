@@ -44,6 +44,9 @@ export class Hotel {
   @Column({ type: 'varchar', length: 20, nullable: true })
   manager_contact: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true, name: 'visiting_card_image' })
+  visiting_card_image: string;
+
   @Column({ type: 'int', nullable: true })
   number_of_days: number;
 
@@ -80,10 +83,24 @@ export class Hotel {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, name: 'advance_paid_amount' })
+  advance_paid_amount: number;
+
+  @Column({ type: 'boolean', default: false, name: 'full_payment_paid' })
+  full_payment_paid: boolean;
+
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @ManyToOne(() => Yatra, (yatra) => yatra.hotels, { onDelete: 'CASCADE' })

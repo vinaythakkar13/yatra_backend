@@ -64,10 +64,18 @@ export class AdminUser {
   @Column({ type: 'datetime', nullable: true, name: 'locked_until' })
   locked_until: Date;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @OneToMany(() => AdminSession, (session) => session.admin)

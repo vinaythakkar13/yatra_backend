@@ -42,7 +42,11 @@ export class AuditLog {
   @Column({ type: 'text', nullable: true, name: 'user_agent' })
   user_agent: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
   @ManyToOne(() => AdminUser, (admin) => admin.auditLogs, { nullable: true, onDelete: 'SET NULL' })

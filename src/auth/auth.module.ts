@@ -6,12 +6,13 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AdminUser } from '../entities/admin-user.entity';
 import { AdminSession } from '../entities/admin-session.entity';
+import { AuditLog } from '../entities/audit-log.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdminUser, AdminSession]),
+    TypeOrmModule.forFeature([AdminUser, AdminSession, AuditLog]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): any => ({
@@ -27,4 +28,4 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [AuthService, JwtAuthGuard, RolesGuard],
   exports: [AuthService, JwtAuthGuard, RolesGuard],
 })
-export class AuthModule {}
+export class AuthModule { }

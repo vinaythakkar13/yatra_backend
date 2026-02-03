@@ -34,7 +34,11 @@ export class EventParticipant {
   @Column({ type: 'uuid', name: 'user_id' })
   user_id: string;
 
-  @Column({ type: 'datetime', name: 'registration_date', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn({
+    name: 'registration_date',
+    type: 'datetime',
+    precision: 0,
+  })
   registration_date: Date;
 
   @Column({
@@ -48,10 +52,18 @@ export class EventParticipant {
   @Column({ type: 'text', nullable: true })
   notes: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @ManyToOne(() => Event, (event) => event.participants, { onDelete: 'CASCADE' })

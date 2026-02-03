@@ -6,6 +6,7 @@ import {
   JoinColumn,
   Index,
   CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { AdminUser } from './admin-user.entity';
 
@@ -36,10 +37,18 @@ export class AdminSession {
   @Column({ type: 'datetime', name: 'expires_at' })
   expires_at: Date;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @Column({ type: 'datetime', default: () => 'CURRENT_TIMESTAMP', name: 'last_activity' })
+  @UpdateDateColumn({
+    name: 'last_activity',
+    type: 'datetime',
+    precision: 0,
+  })
   last_activity: Date;
 
   @Column({ type: 'boolean', default: true, name: 'is_active' })

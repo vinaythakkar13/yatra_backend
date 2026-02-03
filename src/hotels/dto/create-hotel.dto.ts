@@ -1,4 +1,4 @@
-import { IsString, IsUUID, IsOptional, IsBoolean, IsInt, IsArray, IsDateString, ValidateNested, Min, Max, IsObject } from 'class-validator';
+import { IsString, IsUUID, IsOptional, IsBoolean, IsInt, IsArray, IsDateString, ValidateNested, Min, Max, IsObject, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -122,6 +122,11 @@ export class CreateHotelDto {
   @IsString()
   managerContact?: string;
 
+  @ApiPropertyOptional({ description: 'URL of the visiting card image' })
+  @IsOptional()
+  @IsString()
+  visitingCardImage?: string;
+
   @ApiPropertyOptional({ description: 'Number of days for booking period', minimum: 1 })
   @IsOptional()
   @IsInt()
@@ -173,4 +178,15 @@ export class CreateHotelDto {
   @ValidateNested({ each: true })
   @Type(() => RoomDto)
   rooms?: RoomDto[];
+
+  @ApiPropertyOptional({ description: 'Advance amount paid for the hotel', minimum: 0, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  advancePaidAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Whether full payment has been made', default: false })
+  @IsOptional()
+  @IsBoolean()
+  fullPaymentPaid?: boolean;
 }

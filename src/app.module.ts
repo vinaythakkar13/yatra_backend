@@ -18,24 +18,33 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: ['.env.preview', '.env'], // Load preview first, then fallback to .env
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'mysql',
-        host: configService.get<string>('DB_HOST') || 'localhost',
-        port: configService.get<number>('DB_PORT') || 3306,
-        username: configService.get<string>('DB_USER') || 'root',
-        password: configService.get<string>('DB_PASSWORD') || '',
-        database: configService.get<string>('DB_NAME') || 'yatra_db',
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // Disabled: tables already exist from Sequelize migrations
-        logging: configService.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
-        extra: {
-          connectionLimit: configService.get<string>('NODE_ENV') === 'production' ? 10 : 5,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isPreview = configService.get<string>('NODE_ENV') === 'preview';
+        const suffix = isPreview ? '_PREVIEW' : '';
+
+        return {
+          type: 'mysql',
+          host: configService.get<string>(`DB_HOST${suffix}`) || configService.get<string>('DB_HOST') || 'localhost',
+          port: configService.get<number>(`DB_PORT${suffix}`) || configService.get<number>('DB_PORT') || 3306,
+          username: configService.get<string>(`DB_USER${suffix}`) || configService.get<string>('DB_USER') || 'root',
+          password: configService.get<string>(`DB_PASSWORD${suffix}`) || configService.get<string>('DB_PASSWORD') || '',
+          database: configService.get<string>(`DB_NAME${suffix}`) || configService.get<string>('DB_NAME') || 'yatra_db',
+          autoLoadEntities: true,
+          synchronize: false, // Disabled: tables already exist from Sequelize migrations
+          logging: configService.get<string>('NODE_ENV') === 'development' ? ['error', 'warn'] : false,
+          timezone: 'Z', // Force UTC timezone
+          ssl: {
+            rejectUnauthorized: false, // For cloud databases that require SSL
+          },
+          extra: {
+            connectionLimit: configService.get<string>('NODE_ENV') === 'production' ? 10 : 5,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     AuthModule,

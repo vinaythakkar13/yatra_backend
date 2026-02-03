@@ -7,15 +7,18 @@ import { Room } from '../entities/room.entity';
 import { Hotel } from '../entities/hotel.entity';
 import { AdminUser } from '../entities/admin-user.entity';
 import { AdminSession } from '../entities/admin-session.entity';
+import { Event } from '../entities/event.entity';
+import { EventParticipant } from '../entities/event-participant.entity';
+import { YatraRegistration } from '../entities/yatra-registration.entity';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Room, Hotel, AdminUser, AdminSession]),
+    TypeOrmModule.forFeature([User, Room, Hotel, AdminUser, AdminSession, Event, EventParticipant, YatraRegistration]),
     AuthModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
 })
-export class UsersModule {}
+export class UsersModule { }

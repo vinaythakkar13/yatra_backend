@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  CreateDateColumn,
 } from 'typeorm';
 import { YatraRegistration } from './yatra-registration.entity';
 import { AdminUser } from './admin-user.entity';
@@ -15,6 +16,7 @@ export enum RegistrationAction {
   CANCELLED = 'cancelled',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+  SPLIT_REGISTRATION_CREATED = 'split_registration_created',
 }
 
 export enum ChangedByType {
@@ -69,12 +71,10 @@ export class RegistrationLog {
   @Column({ type: 'text', nullable: true, name: 'user_agent' })
   user_agent: string;
 
-  @Column({ 
-    type: 'datetime', 
-    name: 'created_at', 
-    default: () => 'CURRENT_TIMESTAMP',
-    insert: false,
-    update: false
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
   })
   created_at: Date;
 
