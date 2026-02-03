@@ -1,0 +1,12 @@
+{
+    "name": "production",
+    "production": true,
+    "branch": "master",
+    "scripts": {
+        "build": "npm run build",
+        "deploy": "npm start"
+    },
+    "env": {
+        "NODE_ENV": "production"
+    }
+}

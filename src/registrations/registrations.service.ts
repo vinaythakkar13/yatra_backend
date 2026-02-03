@@ -14,6 +14,7 @@ import { Room } from '../entities/room.entity';
 import { Hotel } from '../entities/hotel.entity';
 import { RegistrationLog, RegistrationAction, ChangedByType } from '../entities/registration-log.entity';
 import { CreateRegistrationDto } from './dto/create-registration.dto';
+import { CreateSplitRegistrationDto } from './dto/create-split-registration.dto';
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
@@ -21,6 +22,7 @@ import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-regist
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
 import { Gender } from '../entities/user.entity';
 import { TicketType } from './enums/ticket-type.enum';
+import { generateInternalPnr } from '../utils/pnr-generator';
 
 @Injectable()
 export class RegistrationsService {
@@ -149,6 +151,118 @@ export class RegistrationsService {
     return this.findOne(savedRegistration.id);
   }
 
+  async createSplitRegistration(createDto: CreateSplitRegistrationDto, adminId: string, ipAddress?: string, userAgent?: string) {
+    // Normalize original PNR to uppercase
+    createDto.originalPnr = createDto.originalPnr.toUpperCase();
+
+    // Verify yatra exists
+    const yatra = await this.yatraRepository.findOne({ where: { id: createDto.yatraId } });
+    if (!yatra) {
+      throw new NotFoundException('Yatra not found');
+    }
+
+    // Generate unique internal PNR
+    let internalPnr: string;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    do {
+      if (attempts >= maxAttempts) {
+        throw new BadRequestException('Unable to generate unique internal PNR after multiple attempts');
+      }
+
+      internalPnr = generateInternalPnr();
+      attempts++;
+
+      // Check for collision with existing PNRs and split PNRs
+      const existingPnr = await this.registrationRepository.findOne({
+        where: [
+          { pnr: internalPnr },
+          { split_pnr: internalPnr }
+        ]
+      });
+
+      if (!existingPnr) {
+        break; // No collision, we can use this PNR
+      }
+    } while (attempts < maxAttempts);
+
+    // Find or create user with internal PNR
+    let user = await this.userRepository.findOne({ where: { pnr: internalPnr } });
+    if (!user) {
+      // Create user with first person's details and internal PNR
+      const firstPerson = createDto.persons[0];
+      user = this.userRepository.create({
+        pnr: internalPnr,
+        name: createDto.name,
+        contact_number: createDto.whatsappNumber,
+        gender: firstPerson.gender as Gender,
+        age: firstPerson.age,
+        number_of_persons: createDto.numberOfPersons,
+        boarding_state: createDto.boardingPoint.state,
+        boarding_city: createDto.boardingPoint.city,
+        boarding_point: `${createDto.boardingPoint.city}, ${createDto.boardingPoint.state}`,
+        arrival_date: new Date(createDto.arrivalDate),
+        return_date: new Date(createDto.returnDate),
+        ticket_images: createDto.ticketImages || [],
+        registration_status: 'pending' as any,
+      });
+      user = await this.userRepository.save(user);
+    }
+
+    // Create split registration
+    const registration = this.registrationRepository.create({
+      user_id: user.id,
+      yatra_id: createDto.yatraId,
+      pnr: internalPnr, // Store internal PNR in main pnr field
+      split_pnr: internalPnr, // Also store in split_pnr field for identification
+      original_pnr: createDto.originalPnr, // Store original PNR
+      name: createDto.name,
+      whatsapp_number: createDto.whatsappNumber,
+      number_of_persons: createDto.numberOfPersons,
+      boarding_city: createDto.boardingPoint.city,
+      boarding_state: createDto.boardingPoint.state,
+      arrival_date: new Date(createDto.arrivalDate),
+      return_date: new Date(createDto.returnDate),
+      ticket_images: createDto.ticketImages || [],
+      ticket_type: createDto.ticketType || null,
+      status: RegistrationStatus.PENDING,
+    });
+
+    const savedRegistration = await this.registrationRepository.save(registration);
+
+    // Create persons
+    const persons = createDto.persons.map((person) =>
+      this.personRepository.create({
+        registration_id: savedRegistration.id,
+        name: person.name,
+        age: person.age,
+        gender: person.gender as Gender,
+        is_handicapped: person.isHandicapped !== undefined ? person.isHandicapped : false,
+      }),
+    );
+    await this.personRepository.save(persons);
+
+    // Create audit log with split registration action
+    await this.createLog(
+      savedRegistration.id,
+      RegistrationAction.SPLIT_REGISTRATION_CREATED,
+      adminId,
+      ChangedByType.ADMIN,
+      null,
+      savedRegistration,
+      `Split registration created from original PNR: ${createDto.originalPnr}`,
+      ipAddress ?? undefined,
+      userAgent ?? undefined,
+    );
+
+    return {
+      registration: await this.findOne(savedRegistration.id),
+      internalPnr,
+      originalPnr: createDto.originalPnr,
+    };
+  }
+
   async findAll(query: QueryRegistrationDto) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -184,6 +298,19 @@ export class RegistrationsService {
       } else {
         baseWhere.ticket_type = query.ticketType;
       }
+    }
+
+    // Handle new split registration filters
+    if (query.originalPnr) {
+      baseWhere.original_pnr = query.originalPnr.toUpperCase();
+    }
+
+    if (query.splitPnr) {
+      baseWhere.split_pnr = query.splitPnr.toUpperCase();
+    }
+
+    if (query.onlySplitRegistrations) {
+      baseWhere.split_pnr = Not(IsNull());
     }
 
     // Handle search with OR conditions across name, PNR, and WhatsApp number
@@ -666,36 +793,30 @@ export class RegistrationsService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    // Load only the registration without relations to avoid deep serialization and performance issues
-    const registration = await this.registrationRepository.findOne({
-      where: { id }
-    });
+    try {
+      console.log('updateTicketType called with:', { id, ticketType: updateDto.ticketType });
 
-    if (!registration) {
-      throw new NotFoundException('Registration not found');
+      // Load only the registration without relations to avoid deep serialization and performance issues
+      const registration = await this.registrationRepository.findOne({
+        where: { id }
+      });
+
+      if (!registration) {
+        throw new NotFoundException('Registration not found');
+      }
+
+      console.log('Registration found, updating ticket type...');
+
+      registration.ticket_type = updateDto.ticketType;
+      const savedRegistration = await this.registrationRepository.save(registration);
+
+      console.log('Registration saved successfully');
+
+      return savedRegistration;
+    } catch (error) {
+      console.error('Error in updateTicketType:', error);
+      throw error;
     }
-
-    const oldValues = { ...registration };
-    registration.ticket_type = updateDto.ticketType;
-
-    const savedRegistration = await this.registrationRepository.save(registration);
-
-    // Create audit log - createLog's serializeValue will handle the entities
-    await this.createLog(
-      id,
-      RegistrationAction.UPDATED,
-      userId,
-      userId ? ChangedByType.ADMIN : ChangedByType.USER,
-      oldValues,
-      savedRegistration,
-      `Ticket type updated to ${updateDto.ticketType}`,
-      null,
-      ipAddress ?? undefined,
-      userAgent ?? undefined,
-    );
-
-    // Reload with relations (but no logs) for the final response
-    return this.findOne(id);
   }
 
   async getLogs(id: string) {
@@ -704,5 +825,36 @@ export class RegistrationsService {
       order: { created_at: 'DESC' },
     });
     return logs;
+  }
+
+  async getSplitCountByOriginalPnr(originalPnr: string): Promise<{ originalPnr: string; splitCount: number; splitRegistrations: any[] }> {
+    const splitRegistrations = await this.registrationRepository.find({
+      where: {
+        original_pnr: originalPnr.toUpperCase(),
+        status: Not(RegistrationStatus.CANCELLED)
+      },
+      relations: {
+        persons: true,
+        yatra: true,
+      },
+      order: { created_at: 'DESC' },
+    });
+
+    return {
+      originalPnr: originalPnr.toUpperCase(),
+      splitCount: splitRegistrations.length,
+      splitRegistrations: splitRegistrations.map(reg => ({
+        id: reg.id,
+        splitPnr: reg.split_pnr,
+        name: reg.name,
+        numberOfPersons: reg.number_of_persons,
+        status: reg.status,
+        createdAt: reg.created_at,
+        yatra: reg.yatra ? {
+          id: reg.yatra.id,
+          name: reg.yatra.name,
+        } : null,
+      })),
+    };
   }
 }

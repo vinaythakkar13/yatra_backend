@@ -59,4 +59,19 @@ export class QueryRegistrationDto {
   @IsOptional()
   @IsString()
   ticketType?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by original PNR (for split registrations)' })
+  @IsOptional()
+  @IsString()
+  originalPnr?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by split PNR' })
+  @IsOptional()
+  @IsString()
+  splitPnr?: string;
+
+  @ApiPropertyOptional({ description: 'Show only split registrations', default: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  onlySplitRegistrations?: boolean = false;
 }

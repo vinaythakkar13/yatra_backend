@@ -42,10 +42,18 @@ export class Yatra {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @OneToMany(() => Hotel, (hotel) => hotel.yatra)

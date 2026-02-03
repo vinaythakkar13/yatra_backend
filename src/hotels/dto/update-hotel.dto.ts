@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsInt, IsDateString, Min, Max, IsNumber } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateHotelDto {
@@ -37,6 +37,11 @@ export class UpdateHotelDto {
   @IsString()
   managerContact?: string;
 
+  @ApiPropertyOptional({ description: 'URL of the visiting card image' })
+  @IsOptional()
+  @IsString()
+  visitingCardImage?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
@@ -72,4 +77,15 @@ export class UpdateHotelDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ description: 'Advance amount paid for the hotel', minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  advancePaidAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Whether full payment has been made' })
+  @IsOptional()
+  @IsBoolean()
+  fullPaymentPaid?: boolean;
 }

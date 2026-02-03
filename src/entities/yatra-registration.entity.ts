@@ -6,11 +6,13 @@ import {
   OneToMany,
   JoinColumn,
   Index,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Yatra } from './yatra.entity';
 import { Person } from './person.entity';
-import { RegistrationLog, RegistrationAction, ChangedByType } from './registration-log.entity';
+import { RegistrationLog } from './registration-log.entity';
 import { TicketType } from '../registrations/enums/ticket-type.enum';
 
 export enum RegistrationStatus {
@@ -38,6 +40,12 @@ export class YatraRegistration {
 
   @Column({ type: 'varchar', length: 12, name: 'pnr' })
   pnr: string;
+
+  @Column({ type: 'varchar', length: 10, nullable: true, name: 'split_pnr' })
+  split_pnr: string | null;
+
+  @Column({ type: 'varchar', length: 12, nullable: true, name: 'original_pnr' })
+  original_pnr: string | null;
 
   @Column({
     type: 'enum',
@@ -102,20 +110,17 @@ export class YatraRegistration {
   @Column({ type: 'datetime', nullable: true, name: 'cancelled_at' })
   cancelled_at: Date;
 
-  @Column({
-    type: 'datetime',
+  @CreateDateColumn({
     name: 'created_at',
-    default: () => 'CURRENT_TIMESTAMP',
-    insert: false,
-    update: false
+    type: 'datetime',
+    precision: 0,
   })
   created_at: Date;
 
-  @Column({
-    type: 'datetime',
+  @UpdateDateColumn({
     name: 'updated_at',
-    default: () => 'CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
-    insert: false
+    type: 'datetime',
+    precision: 0,
   })
   updated_at: Date;
 

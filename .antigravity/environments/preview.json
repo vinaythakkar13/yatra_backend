@@ -1,0 +1,16 @@
+{
+    "name": "preview",
+    "production": false,
+    "branch": {
+        "exclude": [
+            "master"
+        ]
+    },
+    "scripts": {
+        "build": "npm run build",
+        "deploy": "npm run start:preview"
+    },
+    "env": {
+        "NODE_ENV": "preview"
+    }
+}

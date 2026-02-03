@@ -17,7 +17,7 @@ export class HotelsService {
     private roomRepository: Repository<Room>,
     @InjectRepository(Yatra)
     private yatraRepository: Repository<Yatra>,
-  ) {}
+  ) { }
 
   async findAll(query: QueryHotelDto) {
     const page = query.page || 1;
@@ -90,6 +90,7 @@ export class HotelsService {
       hotel_type: createHotelDto.hotelType,
       manager_name: createHotelDto.managerName,
       manager_contact: createHotelDto.managerContact,
+      visiting_card_image: createHotelDto.visitingCardImage,
       number_of_days: createHotelDto.numberOfDays,
       start_date: createHotelDto.startDate ? new Date(createHotelDto.startDate) : null,
       end_date: createHotelDto.endDate ? new Date(createHotelDto.endDate) : null,
@@ -98,12 +99,14 @@ export class HotelsService {
       has_elevator: createHotelDto.hasElevator !== undefined ? createHotelDto.hasElevator : false,
       total_floors: createHotelDto.totalFloors || (createHotelDto.floors ? createHotelDto.floors.length : 0),
       floors: createHotelDto.floors || [],
+      advance_paid_amount: createHotelDto.advancePaidAmount !== undefined ? createHotelDto.advancePaidAmount : 0,
+      full_payment_paid: createHotelDto.fullPaymentPaid !== undefined ? createHotelDto.fullPaymentPaid : false,
     };
 
     const hotel = this.hotelRepository.create(hotelData);
     const savedResult = await this.hotelRepository.save(hotel);
     const savedHotel = Array.isArray(savedResult) ? savedResult[0] : savedResult;
-    
+
     if (!savedHotel || !savedHotel.id) {
       throw new BadRequestException('Failed to create hotel');
     }
@@ -218,6 +221,7 @@ export class HotelsService {
     if (updateHotelDto.hotelType !== undefined) updateData.hotel_type = updateHotelDto.hotelType;
     if (updateHotelDto.managerName !== undefined) updateData.manager_name = updateHotelDto.managerName;
     if (updateHotelDto.managerContact !== undefined) updateData.manager_contact = updateHotelDto.managerContact;
+    if (updateHotelDto.visitingCardImage !== undefined) updateData.visiting_card_image = updateHotelDto.visitingCardImage;
     if (updateHotelDto.numberOfDays !== undefined) updateData.number_of_days = updateHotelDto.numberOfDays;
     if (updateHotelDto.startDate !== undefined) updateData.start_date = new Date(updateHotelDto.startDate);
     if (updateHotelDto.endDate !== undefined) updateData.end_date = new Date(updateHotelDto.endDate);
@@ -225,6 +229,8 @@ export class HotelsService {
     if (updateHotelDto.checkOutTime !== undefined) updateData.check_out_time = updateHotelDto.checkOutTime;
     if (updateHotelDto.hasElevator !== undefined) updateData.has_elevator = updateHotelDto.hasElevator;
     if (updateHotelDto.is_active !== undefined) updateData.is_active = updateHotelDto.is_active;
+    if (updateHotelDto.advancePaidAmount !== undefined) updateData.advance_paid_amount = updateHotelDto.advancePaidAmount;
+    if (updateHotelDto.fullPaymentPaid !== undefined) updateData.full_payment_paid = updateHotelDto.fullPaymentPaid;
 
     await this.hotelRepository.update(id, updateData);
     return this.findOne(id);

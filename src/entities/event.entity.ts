@@ -75,10 +75,18 @@ export class Event {
   @Column({ type: 'boolean', default: true, name: 'is_active' })
   is_active: boolean;
 
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({
+    name: 'created_at',
+    type: 'datetime',
+    precision: 0,
+  })
   created_at: Date;
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({
+    name: 'updated_at',
+    type: 'datetime',
+    precision: 0,
+  })
   updated_at: Date;
 
   @OneToMany(() => EventParticipant, (participant) => participant.event)
