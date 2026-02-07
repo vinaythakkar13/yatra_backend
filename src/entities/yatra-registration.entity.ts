@@ -22,6 +22,12 @@ export enum RegistrationStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum DocumentStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 @Entity('yatra_registrations')
 @Index('idx_registration_user', ['user_id'])
 @Index('idx_registration_yatra', ['yatra_id'])
@@ -95,6 +101,17 @@ export class YatraRegistration {
   @Column({ type: 'text', nullable: true, name: 'rejection_reason' })
   rejection_reason: string;
 
+  @Column({
+    type: 'enum',
+    enum: DocumentStatus,
+    default: DocumentStatus.PENDING,
+    name: 'document_status'
+  })
+  document_status: DocumentStatus;
+
+  @Column({ type: 'text', nullable: true, name: 'document_rejection_reason' })
+  document_rejection_reason: string | null;
+
   @Column({ type: 'uuid', nullable: true, name: 'approved_by_admin_id' })
   approved_by_admin_id: string;
 
@@ -109,6 +126,9 @@ export class YatraRegistration {
 
   @Column({ type: 'datetime', nullable: true, name: 'cancelled_at' })
   cancelled_at: Date;
+
+  @Column({ type: 'uuid', nullable: true, name: 'cancelled_by_admin_id' })
+  cancelled_by_admin_id: string;
 
   @CreateDateColumn({
     name: 'created_at',

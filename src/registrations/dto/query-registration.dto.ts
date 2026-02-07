@@ -1,7 +1,7 @@
 import { IsOptional, IsInt, IsUUID, IsEnum, IsString, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { RegistrationStatus } from '../../entities/yatra-registration.entity';
+import { RegistrationStatus, DocumentStatus } from '../../entities/yatra-registration.entity';
 
 export enum RegistrationFilterMode {
   ALL = 'all',
@@ -74,4 +74,9 @@ export class QueryRegistrationDto {
   @IsOptional()
   @Type(() => Boolean)
   onlySplitRegistrations?: boolean = false;
+
+  @ApiPropertyOptional({ enum: DocumentStatus, description: 'Filter by document status' })
+  @IsOptional()
+  @IsEnum(DocumentStatus)
+  documentStatus?: DocumentStatus;
 }

@@ -6,9 +6,9 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, DataSource, Like, Or, Not, IsNull } from 'typeorm';
-import { YatraRegistration, RegistrationStatus } from '../entities/yatra-registration.entity';
+import { YatraRegistration, RegistrationStatus, DocumentStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
-import { User } from '../entities/user.entity';
+import { User, Gender } from '../entities/user.entity';
 import { Yatra } from '../entities/yatra.entity';
 import { Room } from '../entities/room.entity';
 import { Hotel } from '../entities/hotel.entity';
@@ -18,9 +18,9 @@ import { CreateSplitRegistrationDto } from './dto/create-split-registration.dto'
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
+import { ApproveDocumentDto, RejectDocumentDto } from './dto/approve-reject-document.dto';
 import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-registration.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
-import { Gender } from '../entities/user.entity';
 import { TicketType } from './enums/ticket-type.enum';
 import { generateInternalPnr } from '../utils/pnr-generator';
 
@@ -284,6 +284,10 @@ export class RegistrationsService {
       baseWhere.status = query.status;
     }
 
+    if (query.documentStatus) {
+      baseWhere.document_status = query.documentStatus;
+    }
+
     if (query.pnr) {
       baseWhere.pnr = query.pnr.toUpperCase();
     }
@@ -395,7 +399,14 @@ export class RegistrationsService {
     }
     if (updateDto.arrivalDate) registration.arrival_date = new Date(updateDto.arrivalDate);
     if (updateDto.returnDate) registration.return_date = new Date(updateDto.returnDate);
-    if (updateDto.ticketImages !== undefined) registration.ticket_images = updateDto.ticketImages;
+    if (updateDto.ticketImages !== undefined) {
+      registration.ticket_images = updateDto.ticketImages;
+      // If documents were rejected, mark as pending again when new images are uploaded
+      if (registration.document_status === DocumentStatus.REJECTED) {
+        registration.document_status = DocumentStatus.PENDING;
+        registration.document_rejection_reason = null;
+      }
+    }
     if (updateDto.ticketType !== undefined) registration.ticket_type = updateDto.ticketType;
 
     // If status was APPROVED, change back to PENDING after update
@@ -480,6 +491,9 @@ export class RegistrationsService {
     registration.status = RegistrationStatus.CANCELLED;
     registration.cancellation_reason = cancelDto.reason || null;
     registration.cancelled_at = new Date();
+    if (userId) {
+      registration.cancelled_by_admin_id = userId;
+    }
 
     const savedRegistration = await this.registrationRepository.save(registration);
 
@@ -487,7 +501,7 @@ export class RegistrationsService {
     if (registration.user_id) {
       const user = await this.userRepository.findOne({ where: { id: registration.user_id } });
       if (user) {
-        user.registration_status = 'cancelled' as any;
+        user.registration_status = RegistrationStatus.CANCELLED as any;
         await this.userRepository.save(user);
       }
     }
@@ -609,6 +623,101 @@ export class RegistrationsService {
     return this.findOne(id);
   }
 
+  async approveDocument(
+    id: string,
+    approveDto: ApproveDocumentDto,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const registration = await this.findOne(id);
+
+    if (registration.document_status === DocumentStatus.APPROVED) {
+      throw new BadRequestException('Documents are already approved');
+    }
+
+    const oldValues = { ...registration };
+
+    registration.document_status = DocumentStatus.APPROVED;
+    registration.document_rejection_reason = null;
+    if (approveDto.comments) {
+      registration.admin_comments = approveDto.comments;
+    }
+
+    const savedRegistration = await this.registrationRepository.save(registration);
+
+    // Create audit log
+    await this.createLog(
+      id,
+      RegistrationAction.UPDATED,
+      adminId,
+      ChangedByType.ADMIN,
+      oldValues,
+      savedRegistration,
+      'Documents approved',
+      approveDto.comments || null,
+      ipAddress ?? undefined,
+      userAgent ?? undefined,
+    );
+
+    return this.findOne(id);
+  }
+
+  async rejectDocument(
+    id: string,
+    rejectDto: RejectDocumentDto,
+    adminId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const registration = await this.findOne(id);
+
+    if (registration.document_status === DocumentStatus.REJECTED && registration.document_rejection_reason === rejectDto.reason) {
+      throw new BadRequestException('Documents are already rejected with this reason');
+    }
+
+    const oldValues = { ...registration };
+
+    registration.document_status = DocumentStatus.REJECTED;
+    registration.document_rejection_reason = rejectDto.reason;
+    if (rejectDto.comments) {
+      registration.admin_comments = rejectDto.comments;
+    }
+
+    // Auto-cancel registration when document is rejected
+    registration.status = RegistrationStatus.CANCELLED;
+    registration.cancellation_reason = `Document rejected: ${rejectDto.reason}`;
+    registration.cancelled_at = new Date();
+    registration.cancelled_by_admin_id = adminId;
+
+    const savedRegistration = await this.registrationRepository.save(registration);
+
+    // Update user status
+    if (registration.user_id) {
+      const user = await this.userRepository.findOne({ where: { id: registration.user_id } });
+      if (user) {
+        user.registration_status = RegistrationStatus.CANCELLED as any;
+        await this.userRepository.save(user);
+      }
+    }
+
+    // Create audit log with CANCELLED action
+    await this.createLog(
+      id,
+      RegistrationAction.CANCELLED,
+      adminId,
+      ChangedByType.ADMIN,
+      oldValues,
+      savedRegistration,
+      `Registration cancelled due to document rejection: ${rejectDto.reason}`,
+      rejectDto.comments || null,
+      ipAddress ?? undefined,
+      userAgent ?? undefined,
+    );
+
+    return this.findOne(id);
+  }
+
   private async createLog(
     registrationId: string,
     action: RegistrationAction,
@@ -721,6 +830,8 @@ export class RegistrationsService {
         cancellation_reason: registration.cancellation_reason,
         admin_comments: registration.admin_comments,
         rejection_reason: registration.rejection_reason,
+        document_status: registration.document_status,
+        document_rejection_reason: registration.document_rejection_reason,
         ticket_type: registration.ticket_type,
         created_at: registration.created_at,
         updated_at: registration.updated_at,

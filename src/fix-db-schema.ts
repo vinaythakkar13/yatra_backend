@@ -18,7 +18,7 @@ async function runFix() {
             SELECT COLUMN_NAME 
             FROM INFORMATION_SCHEMA.COLUMNS 
             WHERE TABLE_NAME = 'yatra_registrations' 
-            AND COLUMN_NAME IN ('split_pnr', 'original_pnr')
+            AND COLUMN_NAME IN ('split_pnr', 'original_pnr', 'document_status', 'document_rejection_reason')
             AND TABLE_SCHEMA = DATABASE()
         `);
 
@@ -37,6 +37,22 @@ async function runFix() {
             await queryRunner.query(`
                 ALTER TABLE yatra_registrations 
                 ADD COLUMN original_pnr VARCHAR(12) NULL COMMENT 'Original PNR from railway booking for split registrations'
+            `);
+        }
+
+        if (!existingRegCols.includes('document_status')) {
+            console.log('Adding document_status to yatra_registrations...');
+            await queryRunner.query(`
+                ALTER TABLE yatra_registrations 
+                ADD COLUMN document_status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending'
+            `);
+        }
+
+        if (!existingRegCols.includes('document_rejection_reason')) {
+            console.log('Adding document_rejection_reason to yatra_registrations...');
+            await queryRunner.query(`
+                ALTER TABLE yatra_registrations 
+                ADD COLUMN document_rejection_reason TEXT NULL
             `);
         }
 

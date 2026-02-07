@@ -19,6 +19,7 @@ import { CreateSplitRegistrationDto } from './dto/create-split-registration.dto'
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 import { CancelRegistrationDto } from './dto/cancel-registration.dto';
 import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-reject-registration.dto';
+import { ApproveDocumentDto, RejectDocumentDto } from './dto/approve-reject-document.dto';
 import { QueryRegistrationDto } from './dto/query-registration.dto';
 import { GetByPnrDto } from './dto/get-by-pnr.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
@@ -282,6 +283,76 @@ export class RegistrationsController {
     return {
       success: true,
       message: 'Registration rejected successfully',
+      data: registration,
+    };
+  }
+
+  @Post(':id/approve-document')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve registration documents (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Documents approved successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot approve documents' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async approveDocument(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() approveDto: ApproveDocumentDto,
+  ) {
+    if (!req.admin) {
+      throw new Error('Admin authentication required');
+    }
+
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers['user-agent'];
+
+    const registration = await this.registrationsService.approveDocument(
+      id,
+      approveDto,
+      req.admin.id,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: true,
+      message: 'Documents approved successfully',
+      data: registration,
+    };
+  }
+
+  @Post(':id/reject-document')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject registration documents (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Documents rejected successfully' })
+  @ApiResponse({ status: 400, description: 'Cannot reject documents' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async rejectDocument(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Body() rejectDto: RejectDocumentDto,
+  ) {
+    if (!req.admin) {
+      throw new Error('Admin authentication required');
+    }
+
+    const ipAddress = this.extractIpAddress(req);
+    const userAgent = req.headers['user-agent'];
+
+    const registration = await this.registrationsService.rejectDocument(
+      id,
+      rejectDto,
+      req.admin.id,
+      ipAddress,
+      userAgent,
+    );
+
+    return {
+      success: true,
+      message: 'Documents rejected successfully',
       data: registration,
     };
   }
