@@ -111,13 +111,109 @@ export class HotelsService {
       throw new BadRequestException('Failed to create hotel');
     }
 
+    // Create rooms using the reusable sync method
+    await this.syncRooms(savedHotel.id, createHotelDto.floors, createHotelDto.rooms);
+
+    // Update hotel statistics
+    await this.updateHotelStatistics(savedHotel.id);
+
+    // Return complete hotel with relations
+    return this.findOne(savedHotel.id);
+  }
+
+  async update(id: string, updateHotelDto: UpdateHotelDto) {
+    const hotel = await this.hotelRepository.findOne({ where: { id } });
+
+    if (!hotel) {
+      throw new NotFoundException('Hotel not found');
+    }
+
+    // Check if we're updating floors/rooms structure
+    const isUpdatingStructure = updateHotelDto.floors !== undefined ||
+      updateHotelDto.rooms !== undefined ||
+      updateHotelDto.totalFloors !== undefined;
+
+    if (isUpdatingStructure) {
+      // Verify no rooms are occupied before allowing structure changes
+      const occupiedRoomsCount = await this.roomRepository.count({
+        where: { hotel_id: id, is_occupied: true }
+      });
+
+      if (occupiedRoomsCount > 0) {
+        throw new BadRequestException(
+          `Cannot update hotel structure: ${occupiedRoomsCount} room(s) are currently occupied. ` +
+          'Please free all rooms before updating the hotel structure.'
+        );
+      }
+
+      // Delete existing rooms
+      await this.roomRepository.delete({ hotel_id: id });
+
+      // Sync new rooms
+      await this.syncRooms(id, updateHotelDto.floors, updateHotelDto.rooms);
+
+      // Update floors-related fields
+      if (updateHotelDto.floors !== undefined) {
+        await this.hotelRepository.update(id, {
+          floors: updateHotelDto.floors as any,
+          total_floors: updateHotelDto.totalFloors || updateHotelDto.floors.length,
+        });
+      } else if (updateHotelDto.totalFloors !== undefined) {
+        await this.hotelRepository.update(id, {
+          total_floors: updateHotelDto.totalFloors,
+        });
+      }
+    }
+
+    // Map update data for other fields
+    const updateData: any = {};
+    if (updateHotelDto.name !== undefined) updateData.name = updateHotelDto.name;
+    if (updateHotelDto.address !== undefined) updateData.address = updateHotelDto.address;
+    if (updateHotelDto.mapLink !== undefined) updateData.map_link = updateHotelDto.mapLink;
+    if (updateHotelDto.distanceFromBhavan !== undefined) updateData.distance_from_bhavan = updateHotelDto.distanceFromBhavan;
+    if (updateHotelDto.hotelType !== undefined) updateData.hotel_type = updateHotelDto.hotelType;
+    if (updateHotelDto.managerName !== undefined) updateData.manager_name = updateHotelDto.managerName;
+    if (updateHotelDto.managerContact !== undefined) updateData.manager_contact = updateHotelDto.managerContact;
+    if (updateHotelDto.visitingCardImage !== undefined) updateData.visiting_card_image = updateHotelDto.visitingCardImage;
+    if (updateHotelDto.numberOfDays !== undefined) updateData.number_of_days = updateHotelDto.numberOfDays;
+    if (updateHotelDto.startDate !== undefined) updateData.start_date = new Date(updateHotelDto.startDate);
+    if (updateHotelDto.endDate !== undefined) updateData.end_date = new Date(updateHotelDto.endDate);
+    if (updateHotelDto.checkInTime !== undefined) updateData.check_in_time = updateHotelDto.checkInTime;
+    if (updateHotelDto.checkOutTime !== undefined) updateData.check_out_time = updateHotelDto.checkOutTime;
+    if (updateHotelDto.hasElevator !== undefined) updateData.has_elevator = updateHotelDto.hasElevator;
+    if (updateHotelDto.is_active !== undefined) updateData.is_active = updateHotelDto.is_active;
+    if (updateHotelDto.advancePaidAmount !== undefined) updateData.advance_paid_amount = updateHotelDto.advancePaidAmount;
+    if (updateHotelDto.fullPaymentPaid !== undefined) updateData.full_payment_paid = updateHotelDto.fullPaymentPaid;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.hotelRepository.update(id, updateData);
+    }
+
+    // Update statistics (especially if structure changed)
+    await this.updateHotelStatistics(id);
+
+    return this.findOne(id);
+  }
+
+  async remove(id: string) {
+    const hotel = await this.hotelRepository.findOne({ where: { id } });
+
+    if (!hotel) {
+      throw new NotFoundException('Hotel not found');
+    }
+
+    await this.hotelRepository.remove(hotel);
+    return { message: 'Hotel deleted successfully' };
+  }
+
+  private async syncRooms(hotelId: string, floors?: any[], rooms?: any[]) {
     // Create rooms
     const roomsToCreate: Partial<Room>[] = [];
 
     // Map rooms from flat array
     const roomsMap = new Map();
-    if (createHotelDto.rooms && Array.isArray(createHotelDto.rooms)) {
-      createHotelDto.rooms.forEach((room) => {
+    if (rooms && Array.isArray(rooms)) {
+      rooms.forEach((room) => {
         if (room.roomNumber) {
           roomsMap.set(room.roomNumber, {
             roomNumber: room.roomNumber,
@@ -132,10 +228,10 @@ export class HotelsService {
     }
 
     // Process floors structure
-    if (createHotelDto.floors && Array.isArray(createHotelDto.floors)) {
-      createHotelDto.floors.forEach((floor) => {
+    if (floors && Array.isArray(floors)) {
+      floors.forEach((floor) => {
         if (floor.roomNumbers && Array.isArray(floor.roomNumbers)) {
-          floor.roomNumbers.forEach((roomNumber, index) => {
+          floor.roomNumbers.forEach((roomNumber: string, index: number) => {
             let roomDetails = roomsMap.get(roomNumber);
 
             if (!roomDetails && floor.rooms && floor.rooms[index]) {
@@ -162,7 +258,7 @@ export class HotelsService {
             }
 
             roomsToCreate.push({
-              hotel_id: savedHotel.id,
+              hotel_id: hotelId,
               room_number: roomDetails.roomNumber,
               floor: roomDetails.floor ? roomDetails.floor.toString() : floor.floorNumber.toString(),
               toilet_type: (roomDetails.toiletType === 'indian' ? ToiletType.INDIAN : ToiletType.WESTERN) as any,
@@ -176,11 +272,11 @@ export class HotelsService {
     }
 
     // If no floors structure, use flat rooms array
-    if (roomsToCreate.length === 0 && createHotelDto.rooms && Array.isArray(createHotelDto.rooms)) {
-      createHotelDto.rooms.forEach((room) => {
+    if (roomsToCreate.length === 0 && rooms && Array.isArray(rooms)) {
+      rooms.forEach((room) => {
         if (room.roomNumber) {
           roomsToCreate.push({
-            hotel_id: savedHotel.id,
+            hotel_id: hotelId,
             room_number: room.roomNumber,
             floor: room.floor ? room.floor.toString() : '1',
             toilet_type: (room.toiletType === 'indian' ? ToiletType.INDIAN : ToiletType.WESTERN) as any,
@@ -197,54 +293,6 @@ export class HotelsService {
       const roomEntities = this.roomRepository.create(roomsToCreate);
       await this.roomRepository.save(roomEntities);
     }
-
-    // Update hotel statistics
-    await this.updateHotelStatistics(savedHotel.id);
-
-    // Return complete hotel with relations
-    return this.findOne(savedHotel.id);
-  }
-
-  async update(id: string, updateHotelDto: UpdateHotelDto) {
-    const hotel = await this.hotelRepository.findOne({ where: { id } });
-
-    if (!hotel) {
-      throw new NotFoundException('Hotel not found');
-    }
-
-    // Map update data
-    const updateData: any = {};
-    if (updateHotelDto.name !== undefined) updateData.name = updateHotelDto.name;
-    if (updateHotelDto.address !== undefined) updateData.address = updateHotelDto.address;
-    if (updateHotelDto.mapLink !== undefined) updateData.map_link = updateHotelDto.mapLink;
-    if (updateHotelDto.distanceFromBhavan !== undefined) updateData.distance_from_bhavan = updateHotelDto.distanceFromBhavan;
-    if (updateHotelDto.hotelType !== undefined) updateData.hotel_type = updateHotelDto.hotelType;
-    if (updateHotelDto.managerName !== undefined) updateData.manager_name = updateHotelDto.managerName;
-    if (updateHotelDto.managerContact !== undefined) updateData.manager_contact = updateHotelDto.managerContact;
-    if (updateHotelDto.visitingCardImage !== undefined) updateData.visiting_card_image = updateHotelDto.visitingCardImage;
-    if (updateHotelDto.numberOfDays !== undefined) updateData.number_of_days = updateHotelDto.numberOfDays;
-    if (updateHotelDto.startDate !== undefined) updateData.start_date = new Date(updateHotelDto.startDate);
-    if (updateHotelDto.endDate !== undefined) updateData.end_date = new Date(updateHotelDto.endDate);
-    if (updateHotelDto.checkInTime !== undefined) updateData.check_in_time = updateHotelDto.checkInTime;
-    if (updateHotelDto.checkOutTime !== undefined) updateData.check_out_time = updateHotelDto.checkOutTime;
-    if (updateHotelDto.hasElevator !== undefined) updateData.has_elevator = updateHotelDto.hasElevator;
-    if (updateHotelDto.is_active !== undefined) updateData.is_active = updateHotelDto.is_active;
-    if (updateHotelDto.advancePaidAmount !== undefined) updateData.advance_paid_amount = updateHotelDto.advancePaidAmount;
-    if (updateHotelDto.fullPaymentPaid !== undefined) updateData.full_payment_paid = updateHotelDto.fullPaymentPaid;
-
-    await this.hotelRepository.update(id, updateData);
-    return this.findOne(id);
-  }
-
-  async remove(id: string) {
-    const hotel = await this.hotelRepository.findOne({ where: { id } });
-
-    if (!hotel) {
-      throw new NotFoundException('Hotel not found');
-    }
-
-    await this.hotelRepository.remove(hotel);
-    return { message: 'Hotel deleted successfully' };
   }
 
   private async updateHotelStatistics(hotelId: string) {
