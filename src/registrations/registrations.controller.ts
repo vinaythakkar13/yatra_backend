@@ -126,7 +126,7 @@ export class RegistrationsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all registrations (Admin only)' })
   @ApiResponse({ status: 200, description: 'Registrations retrieved successfully' })
@@ -143,7 +143,7 @@ export class RegistrationsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get registration by ID (Admin only)' })
   @ApiResponse({ status: 200, description: 'Registration retrieved successfully' })

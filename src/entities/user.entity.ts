@@ -13,17 +13,18 @@ import { Room } from './room.entity';
 import { EventParticipant } from './event-participant.entity';
 import { YatraRegistration } from './yatra-registration.entity';
 
-export enum Gender {
-  MALE = 'male',
-  FEMALE = 'female',
-  OTHER = 'other',
-}
+import { Gender } from '../enums/gender.enum';
 
 export enum RegistrationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
   CHECKED_IN = 'checked_in',
   CANCELLED = 'cancelled',
+}
+
+export enum RoomAssignmentStatus {
+  DRAFT = 'draft',
+  CONFIRMED = 'confirmed',
 }
 
 @Entity('users')
@@ -77,7 +78,7 @@ export class User {
   return_date: Date;
 
   @Column({ type: 'uuid', name: 'assigned_room_id', nullable: true })
-  assigned_room_id: string;
+  assigned_room_id: string | null;
 
   @Column({ type: 'json', nullable: true, default: () => "'[]'" })
   ticket_images: string[];
@@ -92,6 +93,14 @@ export class User {
 
   @Column({ type: 'boolean', default: false, name: 'is_room_assigned' })
   is_room_assigned: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: RoomAssignmentStatus,
+    nullable: true,
+    name: 'room_assignment_status',
+  })
+  room_assignment_status: RoomAssignmentStatus | null;
 
   @CreateDateColumn({
     name: 'created_at',
@@ -113,6 +122,9 @@ export class User {
 
   @OneToMany(() => EventParticipant, (participant) => participant.user, { cascade: false })
   eventParticipations: EventParticipant[];
+
+  @OneToMany(() => Room, (room) => room.assignedUser)
+  assignedRooms: Room[];
 
   @OneToMany(() => YatraRegistration, (registration) => registration.user, { cascade: false })
   yatraRegistrations: YatraRegistration[];

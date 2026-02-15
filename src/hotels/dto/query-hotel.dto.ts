@@ -8,7 +8,7 @@ export class QueryHotelDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1;
+  page?: number;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 10 })
   @IsOptional()
@@ -16,7 +16,7 @@ export class QueryHotelDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 10;
+  limit?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

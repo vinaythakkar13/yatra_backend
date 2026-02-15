@@ -16,6 +16,7 @@ import { HotelsService } from './hotels.service';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { QueryHotelDto } from './dto/query-hotel.dto';
+import { AssignRoomDto } from './dto/assign-room.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -23,7 +24,7 @@ import { Roles } from '../auth/guards/roles.guard';
 @ApiTags('Hotels')
 @Controller('hotels')
 export class HotelsController {
-  constructor(private readonly hotelsService: HotelsService) {}
+  constructor(private readonly hotelsService: HotelsService) { }
 
   @Get()
   @ApiOperation({ summary: 'Get all hotels' })
@@ -98,6 +99,72 @@ export class HotelsController {
       success: true,
       message: 'Hotel deleted successfully',
       data: null,
+    };
+  }
+
+  @Post('assign-room')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Assign rooms to a registration (Draft)' })
+  @ApiResponse({ status: 201, description: 'Rooms assigned successfully' })
+  @ApiResponse({ status: 400, description: 'Room already occupied or invalid input' })
+  @ApiResponse({ status: 404, description: 'Registration or Hotel/Room not found' })
+  async assignRoom(@Body() dto: AssignRoomDto) {
+    const result = await this.hotelsService.assignRoom(dto);
+    return {
+      success: true,
+      message: result.message,
+      data: result,
+    };
+  }
+
+  @Post('finalize-assignments/:yatraId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Finalize all draft room assignments for a Yatra' })
+  @ApiResponse({ status: 201, description: 'Assignments finalized successfully' })
+  @ApiResponse({ status: 404, description: 'Yatra not found' })
+  async finalizeAssignments(@Param('yatraId') yatraId: string) {
+    const result = await this.hotelsService.finalizeAssignments(yatraId);
+    return {
+      success: true,
+      message: result.message,
+      data: result,
+    };
+  }
+
+  @Delete('assignments/:registrationId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove room assignment for a registration' })
+  @ApiResponse({ status: 200, description: 'Assignment removed successfully' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async removeAssignment(@Param('registrationId') registrationId: string) {
+    const result = await this.hotelsService.removeAssignment(registrationId);
+    return {
+      success: true,
+      message: result.message,
+      data: result,
+    };
+  }
+
+  @Post('assignments/update')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update room assignmnet (Release old and assign new as Draft)' })
+  @ApiResponse({ status: 201, description: 'Assignment updated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async updateAssignment(@Body() dto: AssignRoomDto) {
+    const result = await this.hotelsService.updateAssignment(dto);
+    return {
+      success: true,
+      message: 'Room assignment updated successfully',
+      data: result,
     };
   }
 }

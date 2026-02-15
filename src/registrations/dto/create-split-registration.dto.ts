@@ -14,7 +14,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Gender } from '../../entities/user.entity';
+import { Gender } from '../../enums/gender.enum';
 import { TicketType } from '../enums/ticket-type.enum';
 
 class PersonDto {

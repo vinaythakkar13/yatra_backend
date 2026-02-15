@@ -8,7 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere, DataSource, Like, Or, Not, IsNull } from 'typeorm';
 import { YatraRegistration, RegistrationStatus, DocumentStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
-import { User, Gender } from '../entities/user.entity';
+import { User } from '../entities/user.entity';
+import { Gender } from '../enums/gender.enum';
 import { Yatra } from '../entities/yatra.entity';
 import { Room } from '../entities/room.entity';
 import { Hotel } from '../entities/hotel.entity';
@@ -332,7 +333,11 @@ export class RegistrationsService {
     const [registrations, total] = await this.registrationRepository.findAndCount({
       where: whereClause,
       relations: {
-        user: true,
+        user: {
+          assignedRooms: {
+            hotel: true,
+          },
+        },
         yatra: true,
         persons: true,
       },
@@ -341,8 +346,10 @@ export class RegistrationsService {
       order: { created_at: 'DESC' },
     });
 
+    const sanitizedRegistrations = registrations.map(reg => this.sanitizeRegistration(reg));
+
     return {
-      data: registrations,
+      data: sanitizedRegistrations,
       pagination: {
         total,
         page,
@@ -356,7 +363,11 @@ export class RegistrationsService {
     const registration = await this.registrationRepository.findOne({
       where: { id },
       relations: {
-        user: true,
+        user: {
+          assignedRooms: {
+            hotel: true,
+          },
+        },
         yatra: true,
         persons: true,
       },
@@ -366,7 +377,7 @@ export class RegistrationsService {
       throw new NotFoundException('Registration not found');
     }
 
-    return registration;
+    return this.sanitizeRegistration(registration);
   }
 
   async update(
@@ -797,7 +808,7 @@ export class RegistrationsService {
       where: { pnr: normalizedPnr },
       relations: {
         user: {
-          assignedRoom: {
+          assignedRooms: {
             hotel: true,
           },
         },
@@ -849,47 +860,27 @@ export class RegistrationsService {
         created_at: registration.yatra.created_at,
         updated_at: registration.yatra.updated_at,
       } : null,
+      assignedRooms: [],
       hotel: null,
-      room: null,
     };
 
-    // Check if user has assigned room
-    if (registration.user && registration.user.assigned_room_id && registration.user.assignedRoom) {
-      const room = registration.user.assignedRoom;
-      const hotel = room.hotel;
+    // Check if user has assigned rooms
+    if (registration.user && registration.user.assignedRooms && registration.user.assignedRooms.length > 0) {
+      const assignedRooms = registration.user.assignedRooms;
+      const hotel = assignedRooms[0].hotel;
 
-      response.room = {
-        id: room.id,
+      response.assignedRooms = assignedRooms.map(room => ({
         room_number: room.room_number,
         floor: room.floor,
-        toilet_type: room.toilet_type,
-        number_of_beds: room.number_of_beds,
-        charge_per_day: room.charge_per_day,
-        is_occupied: room.is_occupied,
-        created_at: room.created_at,
-        updated_at: room.updated_at,
-      };
+      }));
 
       if (hotel) {
         response.hotel = {
-          id: hotel.id,
           name: hotel.name,
           address: hotel.address,
-          map_link: hotel.map_link,
-          distance_from_bhavan: hotel.distance_from_bhavan,
-          hotel_type: hotel.hotel_type,
           manager_name: hotel.manager_name,
           manager_contact: hotel.manager_contact,
-          number_of_days: hotel.number_of_days,
-          start_date: hotel.start_date,
-          end_date: hotel.end_date,
-          check_in_time: hotel.check_in_time,
-          check_out_time: hotel.check_out_time,
-          has_elevator: hotel.has_elevator,
-          total_floors: hotel.total_floors,
-          is_active: hotel.is_active,
-          created_at: hotel.created_at,
-          updated_at: hotel.updated_at,
+          map_link: hotel.map_link,
         };
       }
     }
@@ -967,5 +958,41 @@ export class RegistrationsService {
         } : null,
       })),
     };
+  }
+  private sanitizeRegistration(registration: YatraRegistration) {
+    if (registration.user) {
+      // Remove legacy assignedRoom if present to avoid confusion
+      delete (registration.user as any).assignedRoom;
+
+      // Initialize response structure
+      (registration.user as any).assignedRooms = [];
+      (registration.user as any).hotel = null;
+
+      if (registration.user.assignedRooms && registration.user.assignedRooms.length > 0) {
+        const assignedRooms = registration.user.assignedRooms;
+        const firstRoom = assignedRooms[0];
+        const hotel = firstRoom.hotel;
+
+        // Map assigned rooms to simplified structure
+        (registration.user as any).assignedRooms = assignedRooms.map(room => ({
+          id: room.id,
+          room_number: room.room_number,
+          floor: room.floor,
+        }));
+
+        // Extract hotel details from the first room
+        if (hotel) {
+          (registration.user as any).hotel = {
+            id: hotel.id,
+            name: hotel.name,
+            address: hotel.address,
+            manager_name: hotel.manager_name,
+            manager_contact: hotel.manager_contact,
+            map_link: hotel.map_link,
+          };
+        }
+      }
+    }
+    return registration;
   }
 }

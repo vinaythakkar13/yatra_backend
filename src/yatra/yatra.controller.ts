@@ -23,7 +23,7 @@ export class YatraController {
 
   @Get('get-all-yatras')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all yatras' })
   @ApiResponse({ status: 200, description: 'List of yatras retrieved successfully' })

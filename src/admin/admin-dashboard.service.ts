@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
-import { YatraRegistration, RegistrationStatus } from '../entities/yatra-registration.entity';
+import { User } from '../entities/user.entity';
+import { Gender } from '../enums/gender.enum';
+import { YatraRegistration, RegistrationStatus, DocumentStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
 import { Hotel } from '../entities/hotel.entity';
 import { Room } from '../entities/room.entity';
-import { Gender } from '../entities/user.entity';
+
 
 @Injectable()
 export class AdminDashboardService {

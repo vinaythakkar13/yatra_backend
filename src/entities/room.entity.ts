@@ -56,7 +56,7 @@ export class Room {
   is_occupied: boolean;
 
   @Column({ type: 'uuid', name: 'assigned_to_user_id', nullable: true })
-  assigned_to_user_id: string;
+  assigned_to_user_id: string | null;
 
   @CreateDateColumn({
     name: 'created_at',

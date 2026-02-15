@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { YatraRegistration } from './yatra-registration.entity';
-import { Gender } from './user.entity';
+import { Gender } from '../enums/gender.enum';
 
 @Entity('persons')
 @Index('idx_person_registration', ['registration_id'])

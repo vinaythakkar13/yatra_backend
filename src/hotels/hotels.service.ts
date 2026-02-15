@@ -7,6 +7,10 @@ import { Yatra } from '../entities/yatra.entity';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { QueryHotelDto } from './dto/query-hotel.dto';
+import { AssignRoomDto } from './dto/assign-room.dto';
+import { RoomAssignmentStatus, User } from '../entities/user.entity';
+import { YatraRegistration } from '../entities/yatra-registration.entity';
+import { In } from 'typeorm';
 
 @Injectable()
 export class HotelsService {
@@ -17,13 +21,13 @@ export class HotelsService {
     private roomRepository: Repository<Room>,
     @InjectRepository(Yatra)
     private yatraRepository: Repository<Yatra>,
+    @InjectRepository(YatraRegistration)
+    private registrationRepository: Repository<YatraRegistration>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
   ) { }
 
   async findAll(query: QueryHotelDto) {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
-    const skip = (page - 1) * limit;
-
     const where: FindOptionsWhere<Hotel> = {};
     if (query.is_active !== undefined) {
       where.is_active = query.is_active;
@@ -31,6 +35,32 @@ export class HotelsService {
     if (query.yatra) {
       where.yatra_id = query.yatra;
     }
+
+    // If page is not provided, return all records
+    if (!query.page) {
+      const hotels = await this.hotelRepository.find({
+        where,
+        relations: {
+          rooms: true,
+          yatra: true,
+        },
+        order: { created_at: 'DESC' },
+      });
+
+      return {
+        data: hotels,
+        pagination: {
+          total: hotels.length,
+          page: 1,
+          limit: hotels.length,
+          totalPages: 1,
+        },
+      };
+    }
+
+    const page = query.page;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
 
     const [hotels, total] = await this.hotelRepository.findAndCount({
       where,
@@ -293,6 +323,201 @@ export class HotelsService {
       const roomEntities = this.roomRepository.create(roomsToCreate);
       await this.roomRepository.save(roomEntities);
     }
+  }
+
+  async assignRoom(dto: AssignRoomDto) {
+    // 1. Find Registration
+    const registration = await this.registrationRepository.findOne({
+      where: { id: dto.registrationId },
+      relations: {
+        user: true,
+      },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    if (!registration.user) {
+      throw new NotFoundException('User associated with registration not found');
+    }
+
+    // 2. Process assignments
+    const assignedRoomIds: string[] = [];
+
+    // Use a transaction or simply iterate. Since we need to validate all first, let's do checks then updates.
+    // However, for simplicity and since race conditions in room assignment might be rare or handled by unique constraints/locks (which we don't have explicit here), 
+    // we will process them sequentially.
+
+    // First pass: Validate all rooms available and exist
+    for (const assignment of dto.assignments) {
+      const room = await this.roomRepository.findOne({
+        where: {
+          hotel_id: assignment.hotelId,
+          floor: assignment.floor,
+          room_number: assignment.roomNumber,
+        },
+      });
+
+      if (!room) {
+        throw new NotFoundException(
+          `Room ${assignment.roomNumber} on floor ${assignment.floor} not found in hotel ${assignment.hotelId}`
+        );
+      }
+
+      if (room.is_occupied) {
+        // Check if already assigned to THIS user to make it idempotent? 
+        // Or if it's assigned to someone else.
+        if (room.assigned_to_user_id && room.assigned_to_user_id !== registration.user_id) {
+          throw new BadRequestException(`Room ${assignment.roomNumber} is already occupied`);
+        }
+      }
+    }
+
+    // Second pass: Perform assignments
+    // We need to clear previous assignments for this user if we want full replacement, 
+    // OR we just append. The prompt implies "assignment process", usually implies setting the state.
+    // If we assume this payload is the *complete* list of rooms for the user, we should probably clear old ones?
+    // But the prompt doesn't specify "re-assign". Let's assume we are just assigning these specific rooms.
+    // Actually, if a user has rooms assigned and we check "is_occupied", and the user owns it, we are fine.
+
+    // However, if the user had DIFFERENT rooms before, they are still theirs unless we unassign.
+    // Let's assume this operation ADDS/UPDATES assignments.
+
+    for (const assignment of dto.assignments) {
+      const room = await this.roomRepository.findOne({
+        where: {
+          hotel_id: assignment.hotelId,
+          floor: assignment.floor,
+          room_number: assignment.roomNumber,
+        },
+      });
+
+      if (room) {
+        room.is_occupied = true;
+        room.assigned_to_user_id = registration.user_id;
+        await this.roomRepository.save(room);
+        assignedRoomIds.push(room.id);
+      }
+    }
+
+    // 3. Update User
+    if (assignedRoomIds.length > 0) {
+      await this.userRepository.update(registration.user_id, {
+        is_room_assigned: true,
+        assigned_room_id: assignedRoomIds[0], // Backward compatibility
+        room_assignment_status: RoomAssignmentStatus.DRAFT,
+      });
+    }
+
+    return {
+      message: 'Rooms assigned successfully (Draft)',
+      assignedRoomsCount: assignedRoomIds.length,
+      registrationId: registration.id,
+      userId: registration.user_id,
+    };
+  }
+
+  async removeAssignment(registrationId: string) {
+    const registration = await this.registrationRepository.findOne({
+      where: { id: registrationId },
+      relations: { user: true },
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration not found');
+    }
+
+    if (!registration.user) {
+      throw new NotFoundException('User associated with registration not found');
+    }
+
+    // Find all rooms assigned to this user
+    const assignedRooms = await this.roomRepository.find({
+      where: { assigned_to_user_id: registration.user_id },
+    });
+
+    if (assignedRooms.length > 0) {
+      // Release all rooms
+      await this.roomRepository.update(
+        { assigned_to_user_id: registration.user_id },
+        { is_occupied: false, assigned_to_user_id: null }
+      );
+
+      // Update hotel stats for affected hotels
+      const hotelIds = [...new Set(assignedRooms.map(r => r.hotel_id))];
+      for (const hotelId of hotelIds) {
+        await this.updateHotelStatistics(hotelId);
+      }
+    }
+
+    // Update user status
+    await this.userRepository.update(registration.user_id, {
+      is_room_assigned: false,
+      assigned_room_id: null,
+      room_assignment_status: null,
+    });
+
+    return {
+      message: 'Room assignment removed successfully',
+      releasedRoomsCount: assignedRooms.length,
+    };
+  }
+
+  async updateAssignment(dto: AssignRoomDto) {
+    // First remove existing assignment
+    await this.removeAssignment(dto.registrationId);
+
+    // Then assign new rooms
+    return this.assignRoom(dto);
+  }
+
+  async finalizeAssignments(yatraId: string) {
+    // Check if Yatra exists
+    const yatra = await this.yatraRepository.findOne({ where: { id: yatraId } });
+    if (!yatra) {
+      throw new NotFoundException('Yatra not found');
+    }
+
+    // Find all users with DRAFT status who have rooms in hotels belonging to this Yatra
+    // We can do this by finding users with DRAFT status and filtering, 
+    // or by finding hotels -> rooms -> users.
+    // Since `User` has `registration_status` but `room_assignment_status` is new.
+
+    // Update query:
+    // UPDATE users SET room_assignment_status = 'confirmed' 
+    // WHERE room_assignment_status = 'draft' 
+    // AND id IN (SELECT user_id FROM yatra_registrations WHERE yatra_id = :yatraId)
+
+    // Using QueryBuilder or plain repository update with finding IDs first.
+    // Let's find valid users first to be safe.
+
+    // Find users registered for this Yatra who are in DRAFT status
+    const usersToConfirm = await this.userRepository.createQueryBuilder('user')
+      .innerJoin('user.yatraRegistrations', 'registration')
+      .where('registration.yatra_id = :yatraId', { yatraId })
+      .andWhere('user.room_assignment_status = :status', { status: RoomAssignmentStatus.DRAFT })
+      .getMany();
+
+    if (usersToConfirm.length === 0) {
+      return {
+        message: 'No draft assignments found to finalize',
+        count: 0
+      };
+    }
+
+    const userIds = usersToConfirm.map(u => u.id);
+
+    await this.userRepository.update(
+      { id: In(userIds) },
+      { room_assignment_status: RoomAssignmentStatus.CONFIRMED }
+    );
+
+    return {
+      message: 'All draft assignments finalized',
+      count: userIds.length,
+      yatraId
+    };
   }
 
   private async updateHotelStatistics(hotelId: string) {

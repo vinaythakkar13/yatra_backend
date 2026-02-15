@@ -113,6 +113,43 @@ async function runFix() {
         `);
         console.log('SUCCESS: Updated registration_logs action enum!');
 
+        // 4. Repair users table
+        console.log('Checking users columns...');
+        const userColumns = await queryRunner.query(`
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_NAME = 'users' 
+            AND COLUMN_NAME IN ('room_assignment_status', 'is_room_assigned', 'assigned_room_id')
+            AND TABLE_SCHEMA = DATABASE()
+        `);
+
+        const existingUserCols = userColumns.map((c: any) => c.COLUMN_NAME);
+
+        if (!existingUserCols.includes('room_assignment_status')) {
+            console.log('Adding room_assignment_status to users...');
+            await queryRunner.query(`
+                ALTER TABLE users 
+                ADD COLUMN room_assignment_status ENUM('draft', 'confirmed') NULL
+            `);
+        }
+
+        if (!existingUserCols.includes('is_room_assigned')) {
+            console.log('Adding is_room_assigned to users...');
+            await queryRunner.query(`
+                ALTER TABLE users 
+                ADD COLUMN is_room_assigned TINYINT(1) DEFAULT 0
+            `);
+        }
+
+        if (!existingUserCols.includes('assigned_room_id')) {
+            console.log('Adding assigned_room_id to users...');
+            await queryRunner.query(`
+                ALTER TABLE users 
+                ADD COLUMN assigned_room_id CHAR(36) NULL
+            `);
+            // Add foreign key if needed, skipping for now to avoid complexity in repair script
+        }
+
         console.log('SUCCESS: Database schema repair completed!');
     } catch (error) {
         console.error('FAILED to repair database:', error);
