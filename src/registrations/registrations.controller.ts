@@ -289,9 +289,9 @@ export class RegistrationsController {
 
   @Post(':id/approve-document')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Approve registration documents (Admin only)' })
+  @ApiOperation({ summary: 'Approve registration documents' })
   @ApiResponse({ status: 200, description: 'Documents approved successfully' })
   @ApiResponse({ status: 400, description: 'Cannot approve documents' })
   @ApiResponse({ status: 404, description: 'Registration not found' })
@@ -324,9 +324,9 @@ export class RegistrationsController {
 
   @Post(':id/reject-document')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reject registration documents (Admin only)' })
+  @ApiOperation({ summary: 'Reject registration documents' })
   @ApiResponse({ status: 200, description: 'Documents rejected successfully' })
   @ApiResponse({ status: 400, description: 'Cannot reject documents' })
   @ApiResponse({ status: 404, description: 'Registration not found' })
@@ -388,9 +388,9 @@ export class RegistrationsController {
 
   @Patch(':id/ticket-type')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin', 'admin', 'staff')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update registration ticket type (Admin only)' })
+  @ApiOperation({ summary: 'Update registration ticket type' })
   @ApiResponse({ status: 200, description: 'Ticket type updated successfully' })
   @ApiResponse({ status: 404, description: 'Registration not found' })
   async updateTicketType(
