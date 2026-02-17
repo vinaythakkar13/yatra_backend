@@ -651,6 +651,12 @@ export class RegistrationsService {
 
     registration.document_status = DocumentStatus.APPROVED;
     registration.document_rejection_reason = null;
+
+    // Clear cancellation-related fields when document is approved
+    registration.cancelled_at = null;
+    registration.cancellation_reason = null;
+    registration.cancelled_by_admin_id = null;
+
     if (approveDto.comments) {
       registration.admin_comments = approveDto.comments;
     }
@@ -964,12 +970,15 @@ export class RegistrationsService {
       // Remove legacy assignedRoom if present to avoid confusion
       delete (registration.user as any).assignedRoom;
 
+      // Capture original assignedRooms before overwriting
+      const originalAssignedRooms = registration.user.assignedRooms;
+
       // Initialize response structure
       (registration.user as any).assignedRooms = [];
       (registration.user as any).hotel = null;
 
-      if (registration.user.assignedRooms && registration.user.assignedRooms.length > 0) {
-        const assignedRooms = registration.user.assignedRooms;
+      if (originalAssignedRooms && originalAssignedRooms.length > 0) {
+        const assignedRooms = originalAssignedRooms;
         const firstRoom = assignedRooms[0];
         const hotel = firstRoom.hotel;
 
@@ -995,4 +1004,5 @@ export class RegistrationsService {
     }
     return registration;
   }
+
 }

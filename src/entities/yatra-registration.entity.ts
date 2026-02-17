@@ -125,10 +125,10 @@ export class YatraRegistration {
   rejected_at: Date;
 
   @Column({ type: 'datetime', nullable: true, name: 'cancelled_at' })
-  cancelled_at: Date;
+  cancelled_at: Date | null;
 
   @Column({ type: 'uuid', nullable: true, name: 'cancelled_by_admin_id' })
-  cancelled_by_admin_id: string;
+  cancelled_by_admin_id: string | null;
 
   @CreateDateColumn({
     name: 'created_at',

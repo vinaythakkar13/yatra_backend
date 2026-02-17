@@ -11,6 +11,7 @@ import { AssignRoomDto } from './dto/assign-room.dto';
 import { RoomAssignmentStatus, User } from '../entities/user.entity';
 import { YatraRegistration } from '../entities/yatra-registration.entity';
 import { In } from 'typeorm';
+import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
 
 @Injectable()
 export class HotelsService {
@@ -72,6 +73,40 @@ export class HotelsService {
       take: limit,
       order: { created_at: 'DESC' },
     });
+
+    return {
+      data: hotels,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findAvailableHotels(query: QueryAvailableHotelsDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.hotelRepository.createQueryBuilder('hotel')
+      .leftJoinAndSelect('hotel.rooms', 'room')
+      .leftJoinAndSelect('hotel.yatra', 'yatra')
+      .where('hotel.yatra_id = :yatraId', { yatraId: query.yatra })
+      .andWhere('hotel.is_active = :isActive', { isActive: query.is_active !== undefined ? query.is_active : true })
+      .andWhere('hotel.available_rooms > 0')
+      .andWhere('room.is_occupied = :isOccupied', { isOccupied: false });
+
+    if (query.beds) {
+      queryBuilder.andWhere('room.number_of_beds = :beds', { beds: query.beds });
+    }
+
+    const [hotels, total] = await queryBuilder
+      .orderBy('hotel.created_at', 'DESC')
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     return {
       data: hotels,

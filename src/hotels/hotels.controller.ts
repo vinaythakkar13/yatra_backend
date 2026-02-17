@@ -16,6 +16,7 @@ import { HotelsService } from './hotels.service';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { QueryHotelDto } from './dto/query-hotel.dto';
+import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
 import { AssignRoomDto } from './dto/assign-room.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -34,6 +35,19 @@ export class HotelsController {
     return {
       success: true,
       message: 'Hotels retrieved successfully',
+      data: result.data,
+      pagination: result.pagination,
+    };
+  }
+
+  @Get('available')
+  @ApiOperation({ summary: 'Get available hotels for a yatra with room availability and bed filtering' })
+  @ApiResponse({ status: 200, description: 'List of available hotels retrieved successfully' })
+  async findAvailableHotels(@Query() query: QueryAvailableHotelsDto) {
+    const result = await this.hotelsService.findAvailableHotels(query);
+    return {
+      success: true,
+      message: 'Available hotels retrieved successfully',
       data: result.data,
       pagination: result.pagination,
     };
