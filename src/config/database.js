@@ -3,6 +3,10 @@
  * Sequelize configuration for MySQL database connection
  */
 
+const fs = require('fs');
+if (fs.existsSync('.env.preview')) {
+  require('dotenv').config({ path: '.env.preview' });
+}
 require('dotenv').config();
 
 module.exports = {

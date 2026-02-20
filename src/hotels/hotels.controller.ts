@@ -76,12 +76,22 @@ export class HotelsController {
   @ApiResponse({ status: 404, description: 'Yatra not found' })
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() createHotelDto: CreateHotelDto) {
-    const hotel = await this.hotelsService.create(createHotelDto);
-    return {
-      success: true,
-      message: 'Hotel created successfully with all rooms and pricing',
-      data: hotel,
-    };
+    try {
+      const hotel = await this.hotelsService.create(createHotelDto);
+      return {
+        success: true,
+        message: 'Hotel created successfully with all rooms and pricing',
+        data: hotel,
+      };
+    } catch (error: any) {
+      console.error('Error creating hotel:', error);
+      return {
+        success: false,
+        message: error.message || 'Internal server error',
+        error: error,
+        stack: error.stack,
+      };
+    }
   }
 
   @Put(':id')
@@ -178,6 +188,23 @@ export class HotelsController {
     return {
       success: true,
       message: 'Room assignment updated successfully',
+      data: result,
+    };
+  }
+
+  @Post(':id/generate-credentials')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Generate or regenerate hotel portal login credentials' })
+  @ApiResponse({ status: 201, description: 'Credentials generated successfully' })
+  @ApiResponse({ status: 404, description: 'Hotel not found' })
+  @HttpCode(HttpStatus.CREATED)
+  async generateCredentials(@Param('id') id: string) {
+    const result = await this.hotelsService.generateCredentials(id);
+    return {
+      success: true,
+      message: 'Hotel credentials generated successfully. Save the password — it will not be shown again.',
       data: result,
     };
   }

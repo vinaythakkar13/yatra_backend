@@ -8,7 +8,10 @@ import {
   OneToMany,
   JoinColumn,
   Index,
+  BeforeInsert,
+  BeforeUpdate,
 } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Yatra } from './yatra.entity';
 import { Room } from './room.entity';
 
@@ -88,6 +91,20 @@ export class Hotel {
 
   @Column({ type: 'boolean', default: false, name: 'full_payment_paid' })
   full_payment_paid: boolean;
+
+  @Column({ type: 'varchar', length: 20, nullable: true, unique: true, name: 'login_id' })
+  login_id: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, name: 'password_hash' })
+  password_hash: string | null;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword() {
+    if (this.password_hash && !this.password_hash.startsWith('$2b$')) {
+      this.password_hash = await bcrypt.hash(this.password_hash, 10);
+    }
+  }
 
   @CreateDateColumn({
     name: 'created_at',

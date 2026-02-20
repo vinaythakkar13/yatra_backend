@@ -364,9 +364,7 @@ export class HotelsService {
     // 1. Find Registration
     const registration = await this.registrationRepository.findOne({
       where: { id: dto.registrationId },
-      relations: {
-        user: true,
-      },
+      relations: { user: true },
     });
 
     if (!registration) {
@@ -377,14 +375,25 @@ export class HotelsService {
       throw new NotFoundException('User associated with registration not found');
     }
 
-    // 2. Process assignments
-    const assignedRoomIds: string[] = [];
+    // 2. Release all previously assigned rooms for this user
+    const previousRooms = await this.roomRepository.find({
+      where: { assigned_to_user_id: registration.user_id },
+    });
 
-    // Use a transaction or simply iterate. Since we need to validate all first, let's do checks then updates.
-    // However, for simplicity and since race conditions in room assignment might be rare or handled by unique constraints/locks (which we don't have explicit here), 
-    // we will process them sequentially.
+    if (previousRooms.length > 0) {
+      await this.roomRepository.update(
+        { assigned_to_user_id: registration.user_id },
+        { is_occupied: false, assigned_to_user_id: null },
+      );
 
-    // First pass: Validate all rooms available and exist
+      // Update hotel stats for previously affected hotels
+      const previousHotelIds = [...new Set(previousRooms.map((r) => r.hotel_id))];
+      for (const hotelId of previousHotelIds) {
+        await this.updateHotelStatistics(hotelId);
+      }
+    }
+
+    // 3. Validate all incoming rooms before assigning
     for (const assignment of dto.assignments) {
       const room = await this.roomRepository.findOne({
         where: {
@@ -396,28 +405,19 @@ export class HotelsService {
 
       if (!room) {
         throw new NotFoundException(
-          `Room ${assignment.roomNumber} on floor ${assignment.floor} not found in hotel ${assignment.hotelId}`
+          `Room ${assignment.roomNumber} on floor ${assignment.floor} not found in hotel ${assignment.hotelId}`,
         );
       }
 
-      if (room.is_occupied) {
-        // Check if already assigned to THIS user to make it idempotent? 
-        // Or if it's assigned to someone else.
-        if (room.assigned_to_user_id && room.assigned_to_user_id !== registration.user_id) {
-          throw new BadRequestException(`Room ${assignment.roomNumber} is already occupied`);
-        }
+      if (room.is_occupied && room.assigned_to_user_id !== registration.user_id) {
+        throw new BadRequestException(
+          `Room ${assignment.roomNumber} on floor ${assignment.floor} is already occupied by another user`,
+        );
       }
     }
 
-    // Second pass: Perform assignments
-    // We need to clear previous assignments for this user if we want full replacement, 
-    // OR we just append. The prompt implies "assignment process", usually implies setting the state.
-    // If we assume this payload is the *complete* list of rooms for the user, we should probably clear old ones?
-    // But the prompt doesn't specify "re-assign". Let's assume we are just assigning these specific rooms.
-    // Actually, if a user has rooms assigned and we check "is_occupied", and the user owns it, we are fine.
-
-    // However, if the user had DIFFERENT rooms before, they are still theirs unless we unassign.
-    // Let's assume this operation ADDS/UPDATES assignments.
+    // 4. Assign new rooms
+    const assignedRoomIds: string[] = [];
 
     for (const assignment of dto.assignments) {
       const room = await this.roomRepository.findOne({
@@ -436,17 +436,21 @@ export class HotelsService {
       }
     }
 
-    // 3. Update User
-    if (assignedRoomIds.length > 0) {
-      await this.userRepository.update(registration.user_id, {
-        is_room_assigned: true,
-        assigned_room_id: assignedRoomIds[0], // Backward compatibility
-        room_assignment_status: RoomAssignmentStatus.DRAFT,
-      });
+    // 5. Update hotel stats for newly assigned hotels
+    const newHotelIds = [...new Set(dto.assignments.map((a) => a.hotelId))];
+    for (const hotelId of newHotelIds) {
+      await this.updateHotelStatistics(hotelId);
     }
 
+    // 6. Update user record
+    await this.userRepository.update(registration.user_id, {
+      is_room_assigned: assignedRoomIds.length > 0,
+      assigned_room_id: assignedRoomIds.length > 0 ? assignedRoomIds[0] : null,
+      room_assignment_status: assignedRoomIds.length > 0 ? RoomAssignmentStatus.DRAFT : null,
+    });
+
     return {
-      message: 'Rooms assigned successfully (Draft)',
+      message: 'Room assignments updated successfully',
       assignedRoomsCount: assignedRoomIds.length,
       registrationId: registration.id,
       userId: registration.user_id,
@@ -568,5 +572,74 @@ export class HotelsService {
       occupied_rooms: occupiedRooms,
       available_rooms: availableRooms,
     });
+  }
+
+  /**
+   * Generate a unique login ID in the format HTL-XXXX.
+   * Finds the highest existing numeric suffix and increments by 1.
+   */
+  private async generateLoginId(): Promise<string> {
+    const hotels = await this.hotelRepository
+      .createQueryBuilder('hotel')
+      .select('hotel.login_id', 'login_id')
+      .where('hotel.login_id IS NOT NULL')
+      .getRawMany();
+
+    let maxNum = 0;
+    for (const row of hotels) {
+      const match = (row.login_id as string).match(/^HTL-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+
+    return `HTL-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
+  /**
+   * Generate a cryptographically random password using a safe character set.
+   */
+  private generateRandomPassword(length = 12): string {
+    const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#$%&!';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    return password;
+  }
+
+  /**
+   * Generate (or regenerate) login credentials for a hotel.
+   * - login_id is assigned once (HTL-XXXX) and never changes.
+   * - A new password is generated each time this is called.
+   * - The password is stored hashed in the DB via the entity hook.
+   * - The plain-text password is returned ONLY in this response.
+   */
+  async generateCredentials(hotelId: string) {
+    const hotel = await this.hotelRepository.findOne({ where: { id: hotelId } });
+
+    if (!hotel) {
+      throw new NotFoundException('Hotel not found');
+    }
+
+    // Reuse existing login_id; only assign a new one if not yet set
+    const loginId = hotel.login_id ?? (await this.generateLoginId());
+
+    // Generate a fresh plain-text password
+    const plainPassword = this.generateRandomPassword(12);
+
+    // Set fields — entity @BeforeInsert/@BeforeUpdate hook will bcrypt-hash the password
+    hotel.login_id = loginId;
+    hotel.password_hash = plainPassword;
+
+    await this.hotelRepository.save(hotel);
+
+    return {
+      hotel_id: hotel.id,
+      hotel_name: hotel.name,
+      login_id: loginId,
+      password: plainPassword,
+    };
   }
 }
