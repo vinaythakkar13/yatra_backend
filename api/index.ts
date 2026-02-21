@@ -92,9 +92,6 @@ async function createApp(): Promise<Express> {
       'http://localhost:5173',
       'http://127.0.0.1:3000',
       'https://yatra-kappa.vercel.app',
-      'https://yatra-backend.vercel.app',
-      'https://yatra-git-feature-hotel-module-vinay-thakkar.vercel.app',
-      'https://yatra-git-development-vinay-thakkar.vercel.app/admin/login'
     ];
   };
 
@@ -104,11 +101,12 @@ async function createApp(): Promise<Express> {
 
       console.log(`🌍 Incoming request from origin: ${origin || '[server-to-server]'}`);
 
-      // Check if origin is in allowed list or is local
+      // Check if origin is in allowed list or is local or a Vercel preview deployment
       const isAllowed = !origin ||
         allowedOrigins.includes(origin) ||
         origin.includes('localhost') ||
-        origin.includes('127.0.0.1');
+        origin.includes('127.0.0.1') ||
+        origin.endsWith('.vercel.app'); // Allow all Vercel branch deployments
 
       if (isAllowed) {
         console.log(`✅ CORS allowed for origin: ${origin || '[none]'}`);
@@ -258,7 +256,8 @@ export default async function handler(req: Request, res: Response): Promise<void
         (typeof origin === 'string' && (
           allowedOrigins.includes(origin) ||
           origin.includes('localhost') ||
-          origin.includes('127.0.0.1')
+          origin.includes('127.0.0.1') ||
+          origin.endsWith('.vercel.app')
         ));
 
       if (isAllowed && origin) {
