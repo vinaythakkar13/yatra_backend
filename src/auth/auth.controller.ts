@@ -15,11 +15,12 @@ import { CreateAdminDto } from './dto/create-admin.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './guards/roles.guard';
+import { HotelLoginDto } from './dto/hotel-login.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('create-super-admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,6 +37,24 @@ export class AuthController {
       success: true,
       message: 'Super admin created successfully',
       data: admin,
+    };
+  }
+
+  @Post('hotel-login')
+  @ApiOperation({ summary: 'Hotel login' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @HttpCode(HttpStatus.OK)
+  async hotelLogin(@Body() hotelLoginDto: HotelLoginDto, @Request() req: any) {
+    const result = await this.authService.hotelLogin(
+      hotelLoginDto,
+      req.ip || req.headers['x-forwarded-for'] || 'unknown',
+      req.headers['user-agent'] || 'unknown',
+    );
+    return {
+      success: true,
+      message: 'Login successful',
+      data: result,
     };
   }
 

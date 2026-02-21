@@ -42,6 +42,14 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
           },
           extra: {
             connectionLimit: configService.get<string>('NODE_ENV') === 'production' ? 10 : 5,
+            waitForConnections: true,
+            queueLimit: 0,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 0,
+            idleTimeout: 30000,
+            maxIdle: 5,
+            connectTimeout: 0, // No timeout
+            acquireTimeout: 0, // No timeout
           },
         };
       },

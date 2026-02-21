@@ -25,6 +25,7 @@ export enum RegistrationStatus {
 export enum RoomAssignmentStatus {
   DRAFT = 'draft',
   CONFIRMED = 'confirmed',
+  ALLOTED = 'alloted',
 }
 
 @Entity('users')

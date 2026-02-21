@@ -7,12 +7,13 @@ import { AuthService } from './auth.service';
 import { AdminUser } from '../entities/admin-user.entity';
 import { AdminSession } from '../entities/admin-session.entity';
 import { AuditLog } from '../entities/audit-log.entity';
+import { Hotel } from '../entities/hotel.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdminUser, AdminSession, AuditLog]),
+    TypeOrmModule.forFeature([AdminUser, AdminSession, AuditLog, Hotel]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): any => ({

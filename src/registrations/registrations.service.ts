@@ -24,6 +24,8 @@ import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-regist
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
 import { TicketType } from './enums/ticket-type.enum';
 import { generateInternalPnr } from '../utils/pnr-generator';
+import { BulkRoomStatusUpdateDto } from './dto/bulk-room-status-update.dto';
+import { RoomAssignmentStatus } from '../entities/user.entity';
 
 @Injectable()
 export class RegistrationsService {
@@ -870,8 +872,13 @@ export class RegistrationsService {
       hotel: null,
     };
 
-    // Check if user has assigned rooms
-    if (registration.user && registration.user.assignedRooms && registration.user.assignedRooms.length > 0) {
+    // Check if user has assigned rooms AND status is alloted
+    if (
+      registration.user &&
+      registration.user.room_assignment_status === RoomAssignmentStatus.ALLOTED &&
+      registration.user.assignedRooms &&
+      registration.user.assignedRooms.length > 0
+    ) {
       const assignedRooms = registration.user.assignedRooms;
       const hotel = assignedRooms[0].hotel;
 
@@ -936,32 +943,20 @@ export class RegistrationsService {
   }
 
   async getSplitCountByOriginalPnr(originalPnr: string): Promise<{ originalPnr: string; splitCount: number; splitRegistrations: any[] }> {
-    const splitRegistrations = await this.registrationRepository.find({
-      where: {
-        original_pnr: originalPnr.toUpperCase(),
-        status: Not(RegistrationStatus.CANCELLED)
-      },
-      relations: {
-        persons: true,
-        yatra: true,
-      },
-      order: { created_at: 'DESC' },
+    const registrations = await this.registrationRepository.find({
+      where: { original_pnr: originalPnr },
+      order: { created_at: 'ASC' },
     });
 
     return {
-      originalPnr: originalPnr.toUpperCase(),
-      splitCount: splitRegistrations.length,
-      splitRegistrations: splitRegistrations.map(reg => ({
+      originalPnr,
+      splitCount: registrations.length,
+      splitRegistrations: registrations.map((reg) => ({
         id: reg.id,
         splitPnr: reg.split_pnr,
         name: reg.name,
-        numberOfPersons: reg.number_of_persons,
-        status: reg.status,
         createdAt: reg.created_at,
-        yatra: reg.yatra ? {
-          id: reg.yatra.id,
-          name: reg.yatra.name,
-        } : null,
+        status: reg.status,
       })),
     };
   }
@@ -1003,6 +998,34 @@ export class RegistrationsService {
       }
     }
     return registration;
+  }
+
+  /**
+   * Bulk update room assignment status for all registrations in a specific Yatra
+   * who already have room assignments.
+   */
+  async updateRoomAssignmentStatusByYatra(yatraId: string, updateDto: BulkRoomStatusUpdateDto) {
+    // We want to update RoomAssignmentStatus for all users who:
+    // 1. Have a registration for this yatraId
+    // 2. Already have is_room_assigned = true
+
+    const updateResult = await this.userRepository
+      .createQueryBuilder('user')
+      .update(User)
+      .set({ room_assignment_status: updateDto.status })
+      .where('id IN (' +
+        this.registrationRepository.createQueryBuilder('reg')
+          .select('reg.user_id')
+          .where('reg.yatra_id = :yatraId')
+          .getQuery() +
+        ')', { yatraId })
+      .andWhere('is_room_assigned = :isAssigned', { isAssigned: true })
+      .execute();
+
+    return {
+      affected: updateResult.affected || 0,
+      status: updateDto.status,
+    };
   }
 
 }

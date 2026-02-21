@@ -129,7 +129,13 @@ async function runFix() {
             console.log('Adding room_assignment_status to users...');
             await queryRunner.query(`
                 ALTER TABLE users 
-                ADD COLUMN room_assignment_status ENUM('draft', 'confirmed') NULL
+                ADD COLUMN room_assignment_status ENUM('draft', 'confirmed', 'alloted') NULL
+            `);
+        } else {
+            console.log('Updating room_assignment_status ENUM values...');
+            await queryRunner.query(`
+                ALTER TABLE users 
+                MODIFY COLUMN room_assignment_status ENUM('draft', 'confirmed', 'alloted') NULL
             `);
         }
 

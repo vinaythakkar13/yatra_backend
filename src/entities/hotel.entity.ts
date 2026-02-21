@@ -106,6 +106,11 @@ export class Hotel {
     }
   }
 
+  async verifyPassword(password: string): Promise<boolean> {
+    if (!this.password_hash) return false;
+    return await bcrypt.compare(password, this.password_hash);
+  }
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'datetime',

@@ -92,7 +92,9 @@ async function createApp(): Promise<Express> {
       'http://localhost:5173',
       'http://127.0.0.1:3000',
       'https://yatra-kappa.vercel.app',
-      'https://yatra-backend.vercel.app'
+      'https://yatra-backend.vercel.app',
+      'https://yatra-git-feature-hotel-module-vinay-thakkar.vercel.app',
+      'https://yatra-git-development-vinay-thakkar.vercel.app/admin/login'
     ];
   };
 

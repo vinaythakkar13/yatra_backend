@@ -23,6 +23,7 @@ import { ApproveDocumentDto, RejectDocumentDto } from './dto/approve-reject-docu
 import { QueryRegistrationDto } from './dto/query-registration.dto';
 import { GetByPnrDto } from './dto/get-by-pnr.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
+import { BulkRoomStatusUpdateDto } from './dto/bulk-room-status-update.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -430,6 +431,25 @@ export class RegistrationsController {
       success: true,
       message: 'Split analytics retrieved successfully',
       data: analytics,
+    };
+  }
+
+  @Patch('yatra/:yatraId/room-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin', 'staff')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk update room assignment status for a Yatra' })
+  @ApiResponse({ status: 200, description: 'Room status updated successfully' })
+  @ApiResponse({ status: 404, description: 'Yatra not found' })
+  async updateBulkRoomStatus(
+    @Param('yatraId') yatraId: string,
+    @Body() updateDto: BulkRoomStatusUpdateDto,
+  ) {
+    const result = await this.registrationsService.updateRoomAssignmentStatusByYatra(yatraId, updateDto);
+    return {
+      success: true,
+      message: `Successfully updated ${result.affected} room assignment(s) to ${result.status}`,
+      data: result,
     };
   }
 }

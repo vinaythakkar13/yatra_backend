@@ -10,9 +10,15 @@ import { Response } from 'express';
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: HttpException, host: ArgumentsHost) {
+    const status = exception.getStatus();
+    if (status === 500) {
+      console.error('--- HttpException (500) ---');
+      console.error(exception);
+      console.error('---------------------------');
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
 
     const message =
@@ -36,6 +42,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
+    console.error('--- Unhandled Exception ---');
+    console.error(exception);
+    console.error('---------------------------');
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const status =
