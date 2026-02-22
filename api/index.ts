@@ -75,20 +75,27 @@ async function createApp(): Promise<Express> {
     ];
   };
 
-  const checkOrigin = (origin: string | undefined): boolean => {
-    if (!origin) return true;
+  /**
+   * Enhanced checkOrigin with diagnostic logging logic
+   */
+  const checkOrigin = (origin: string | undefined): { isAllowed: boolean; reason?: string } => {
+    if (!origin) return { isAllowed: true };
     const allowed = getAllowedOrigins();
-    return allowed.includes(origin) ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      origin.endsWith('.vercel.app');
+
+    if (allowed.includes(origin)) return { isAllowed: true };
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) return { isAllowed: true };
+    if (origin.endsWith('.vercel.app')) return { isAllowed: true };
+
+    const reason = `Origin '${origin}' not in allowlist [${allowed.join(', ')}] and doesn't match localhost or *.vercel.app`;
+    return { isAllowed: false, reason };
   };
 
   // Express-level preflight handler to bypass any potential downstream blocks
   expressApp.use((req, res, next) => {
     const origin = req.headers.origin as string;
+    const { isAllowed, reason } = checkOrigin(origin);
 
-    if (checkOrigin(origin)) {
+    if (isAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin || '*');
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
@@ -97,12 +104,24 @@ async function createApp(): Promise<Express> {
     }
 
     if (req.method === 'OPTIONS') {
-      console.log('🔍 PREFLIGHT DIAGNOSTIC');
-      console.log('   - Origin:', req.headers.origin);
-      console.log('   - Request Method:', req.headers['access-control-request-method']);
-      console.log('   - Request Headers:', req.headers['access-control-request-headers']);
+      if (isAllowed) {
+        console.log(`✅ PREFLIGHT OK: ${origin || '[no-origin]'}`);
+        res.status(204).end();
+        return;
+      } else {
+        console.warn(`❌ PREFLIGHT BLOCKED: ${reason}`);
+        // Still allow OPTIONS to pass through with headers but not 204 if we want Nest to handle error?
+        // Actually for Vercel, it's safer to return 403 or similar if CORS fails
+        res.status(403).json({ message: 'CORS policy violation', detail: reason });
+        return;
+      }
     }
-    next();
+
+    if (!isAllowed) {
+      console.warn(`❌ CORS REJECTED: ${reason}`);
+    }
+
+    return next();
   });
 
   // Body parser middleware - 20MB limit for image uploads
@@ -117,10 +136,10 @@ async function createApp(): Promise<Express> {
   // ============================================
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (checkOrigin(origin)) {
+      const { isAllowed } = checkOrigin(origin);
+      if (isAllowed) {
         return callback(null, true);
       }
-      console.warn(`❌ CORS BLOCKED: Origin '${origin}' NOT in allowed list`);
       callback(new Error('CORS policy violation'));
     },
     credentials: true,
@@ -190,6 +209,19 @@ async function createApp(): Promise<Express> {
   // ============================================
   await app.init();
 
+  // Database Connection Message for Vercel Logs
+  const isPreview = process.env.NODE_ENV === 'preview' || process.env.VERCEL_ENV === 'preview';
+  const envSuffix = isPreview ? '_PREVIEW' : '';
+  const dbName = process.env[`DB_NAME${envSuffix}`] || process.env.DB_NAME || 'yatra_db';
+  const dbHost = process.env[`DB_HOST${envSuffix}`] || process.env.DB_HOST || 'unknown-host';
+
+  console.log('--- VERCEL INITIALIZATION ---');
+  console.log(`✅ Database Name: [${dbName}]`);
+  console.log(`🌐 Database Host: [${dbHost}]`);
+  console.log(`📍 Environment: [${process.env.NODE_ENV || 'production'}]`);
+  console.log('----------------------------');
+
+
   // Cache the instance for subsequent invocations
   cachedInstance = {
     app: expressApp,
@@ -211,6 +243,11 @@ async function createApp(): Promise<Express> {
  */
 export default async function handler(req: Request, res: Response): Promise<void> {
   try {
+    // Diagnostic log for every request to troubleshoot CORS/Origin issues on Vercel
+    if (req.method !== 'OPTIONS' && !req.url?.includes('/api-docs')) {
+      console.log(`[VERCEL-REQ] ${req.method} ${req.url} | Origin: ${req.headers.origin || '[none]'} | Host: ${req.headers.host}`);
+    }
+
     const expressApp = await createApp();
 
     // Route request through Express/NestJS app
