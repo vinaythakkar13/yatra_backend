@@ -97,13 +97,12 @@ async function createApp(): Promise<Express> {
     }
 
     if (req.method === 'OPTIONS') {
-
-      console.log(`✅ PREFLIGHT OK: ${origin || '[no-origin]'}`);
-
-      res.status(204).end();
-      return;
+      console.log('🔍 PREFLIGHT DIAGNOSTIC');
+      console.log('   - Origin:', req.headers.origin);
+      console.log('   - Request Method:', req.headers['access-control-request-method']);
+      console.log('   - Request Headers:', req.headers['access-control-request-headers']);
     }
-    return next();
+    next();
   });
 
   // Body parser middleware - 20MB limit for image uploads
