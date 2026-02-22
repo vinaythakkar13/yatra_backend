@@ -97,7 +97,9 @@ async function createApp(): Promise<Express> {
     }
 
     if (req.method === 'OPTIONS') {
+
       console.log(`✅ PREFLIGHT OK: ${origin || '[no-origin]'}`);
+
       res.status(204).end();
       return;
     }
