@@ -57,6 +57,53 @@ async function createApp(): Promise<Express> {
   // Middleware Configuration
   // ============================================
 
+  // ============================================
+  // CORS and Preflight Handling (EARLY)
+  // ============================================
+  const getAllowedOrigins = (): string[] => {
+    const envOrigins = process.env.CORS_ORIGIN;
+    if (envOrigins) {
+      return envOrigins.split(',').map(o => o.trim()).filter(Boolean);
+    }
+    return [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'https://yatra-kappa.vercel.app',
+    ];
+  };
+
+  const checkOrigin = (origin: string | undefined): boolean => {
+    if (!origin) return true;
+    const allowed = getAllowedOrigins();
+    return allowed.includes(origin) ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1') ||
+      origin.endsWith('.vercel.app');
+  };
+
+  // Express-level preflight handler to bypass any potential downstream blocks
+  expressApp.use((req, res, next) => {
+    const origin = req.headers.origin as string;
+
+    if (checkOrigin(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, PUT, PATCH, POST, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-client-version, x-client-platform, ngrok-skip-browser-warning');
+      res.setHeader('Access-Control-Max-Age', '86400');
+    }
+
+    if (req.method === 'OPTIONS') {
+      console.log(`✅ PREFLIGHT OK: ${origin || '[no-origin]'}`);
+      res.status(204).end();
+      return;
+    }
+    return next();
+  });
+
   // Body parser middleware - 20MB limit for image uploads
   expressApp.use(express.json({ limit: '20mb' }));
   expressApp.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -64,84 +111,20 @@ async function createApp(): Promise<Express> {
   // Request logging middleware
   expressApp.use(corsLogger);
 
-  // Diagnostic CORS middleware
-  expressApp.use((req, res, next) => {
-    if (req.method === 'OPTIONS') {
-      console.log('🔍 PREFLIGHT DIAGNOSTIC');
-      console.log('   - Origin:', req.headers.origin);
-      console.log('   - Request Method:', req.headers['access-control-request-method']);
-      console.log('   - Request Headers:', req.headers['access-control-request-headers']);
-    }
-    next();
-  });
-
   // ============================================
-  // CORS Configuration (Production-Ready)
+  // NestJS CORS Configuration (Backup)
   // ============================================
-  const getAllowedOrigins = (): string[] => {
-    // Get from environment or use defaults
-    const envOrigins = process.env.CORS_ORIGIN;
-    if (envOrigins) {
-      return envOrigins.split(',').map(o => o.trim());
-    }
-
-    // Default origins for development and production
-    return [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'https://yatra-kappa.vercel.app',
-    ];
-  };
-
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      const allowedOrigins = getAllowedOrigins();
-
-      console.log(`🌍 Incoming request from origin: ${origin || '[server-to-server]'}`);
-
-      // Check if origin is in allowed list or is local or a Vercel preview deployment
-      const isAllowed = !origin ||
-        allowedOrigins.includes(origin) ||
-        origin.includes('localhost') ||
-        origin.includes('127.0.0.1') ||
-        origin.endsWith('.vercel.app'); // Allow all Vercel branch deployments
-
-      if (isAllowed) {
-        console.log(`✅ CORS allowed for origin: ${origin || '[none]'}`);
+      if (checkOrigin(origin)) {
         return callback(null, true);
       }
-
-      // Log blocked origin
-      console.warn(`❌ CORS BLOCKED: Origin '${origin}' not in allowed list`);
-      console.warn(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
+      console.warn(`❌ CORS BLOCKED: Origin '${origin}' NOT in allowed list`);
       callback(new Error('CORS policy violation'));
     },
     credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Origin',
-      'x-client-version',
-      'x-client-platform',
-      'Referer',
-      'User-Agent',
-      'sec-ch-ua',
-      'sec-ch-ua-mobile',
-      'sec-ch-ua-platform',
-      'sec-fetch-dest',
-      'sec-fetch-mode',
-      'sec-fetch-site',
-      'Accept-Language',
-      'Accept-Encoding',
-    ],
-    exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
-    maxAge: 86400, // 24 hours preflight cache
   });
+
 
   // ============================================
   // Global Pipes (Validation)

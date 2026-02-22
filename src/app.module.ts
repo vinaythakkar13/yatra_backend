@@ -48,8 +48,6 @@ import { AllExceptionsFilter, HttpExceptionFilter } from './common/filters/http-
             keepAliveInitialDelay: 0,
             idleTimeout: 30000,
             maxIdle: 5,
-            connectTimeout: 0, // No timeout
-            acquireTimeout: 0, // No timeout
           },
         };
       },

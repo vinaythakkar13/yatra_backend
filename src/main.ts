@@ -7,17 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
     rawBody: false,
-  });
-
-  // 1. ABSOLUTE ENTRY LEVEL LOGGER (Before anything else)
-  app.use((req: any, res: any, next: any) => {
-    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    console.log(`\n--- [ENTRY] ${req.method} ${req.url} ---`);
-    console.log(`IP: ${ip} | Origin: ${req.headers.origin || 'No Origin'}`);
-    if (req.method === 'OPTIONS') {
-      console.log('Preflight Request Headers:', JSON.stringify(req.headers, null, 2));
-    }
-    next();
+    logger: ['error', 'warn'], // Only show errors and warnings from Nest
   });
 
   // Configure body parser limits for large base64 image uploads (20MB)
@@ -44,11 +34,6 @@ async function bootstrap() {
     ...corsOrigins,
   ];
 
-  console.log('\n--- CORS CONFIGURATION ---');
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Static Allowed Origins:', corsOrigins);
-  console.log('--------------------------\n');
-
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       // Allow requests with no origin (like curl or mobile apps or same-origin)
@@ -66,7 +51,6 @@ async function bootstrap() {
       if (isAllowed) {
         callback(null, true);
       } else {
-        console.warn(`[CORS REJECTED] Origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -145,8 +129,16 @@ async function bootstrap() {
 
   const port = process.env.PORT || 5000;
   await app.listen(port);
-  console.log(`\n🚀 Server running at http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api-docs`);
+
+  // Database Connection Message
+  const isPreview = process.env.NODE_ENV === 'preview' || process.env.NODE_ENV === 'development';
+  const suffix = isPreview ? '_PREVIEW' : '';
+  const dbName = process.env[`DB_NAME${suffix}`] || process.env.DB_NAME || 'yatra_db';
+
+  console.log(`\n✅ Database [${dbName}] connected successfully`);
+  console.log(`🚀 Server running at http://localhost:${port}`);
+  console.log(`📚 API Documentation: http://localhost:${port}/api-docs\n`);
 }
 
 bootstrap();
+

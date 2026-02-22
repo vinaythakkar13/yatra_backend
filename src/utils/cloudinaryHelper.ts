@@ -295,21 +295,9 @@ export const validateCloudinaryConfig = (): boolean => {
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
   if (!cloudName || !apiKey || !apiSecret) {
-    console.error('Cloudinary configuration missing:', {
-      hasCloudName: !!cloudName,
-      hasApiKey: !!apiKey,
-      hasApiSecret: !!apiSecret,
-    });
     return false;
   }
 
   return true;
 };
-
-// Initialize Cloudinary configuration when module is loaded
-if (validateCloudinaryConfig()) {
-  configureCloudinary();
-} else {
-  console.warn('⚠️  Cloudinary not configured. Image upload features will not work.');
-}
 

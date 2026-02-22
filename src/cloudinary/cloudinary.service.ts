@@ -6,8 +6,21 @@ import { configureCloudinary, uploadImageFromBase64, uploadImageFromBuffer, uplo
 @Injectable()
 export class CloudinaryService {
   constructor(private configService: ConfigService) {
-    // Initialize Cloudinary configuration
-    configureCloudinary();
+    // Initialize Cloudinary configuration only if credentials are present
+    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
+    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
+    const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
+
+    if (cloudName && apiKey && apiSecret) {
+      configureCloudinary();
+    } else if (process.env.NODE_ENV !== 'test') {
+      console.warn('⚠️  Cloudinary not configured. Image upload features will not work.');
+      console.warn('Cloudinary configuration status:', {
+        hasCloudName: !!cloudName,
+        hasApiKey: !!apiKey,
+        hasApiSecret: !!apiSecret,
+      });
+    }
   }
 
   async uploadBase64(base64String: string, folder?: string, options?: any) {
