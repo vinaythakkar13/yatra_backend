@@ -642,4 +642,59 @@ export class HotelsService {
       password: plainPassword,
     };
   }
+
+  /**
+   * Get all room allotment data for a specific hotel.
+   * Includes registration ID, PNR, number of travellers, name, and room details.
+   */
+  async getRoomAllottedData(hotelId: string) {
+    const hotel = await this.hotelRepository.findOne({
+      where: { id: hotelId },
+      select: ['id', 'yatra_id']
+    });
+
+    if (!hotel) {
+      throw new NotFoundException('Hotel not found');
+    }
+
+    const rooms = await this.roomRepository.find({
+      where: { hotel_id: hotelId, is_occupied: true },
+      relations: {
+        assignedUser: {
+          yatraRegistrations: true
+        }
+      }
+    });
+
+    // Group rooms by user ID
+    const groupedData = new Map<string, any>();
+
+    for (const room of rooms) {
+      const userId = room.assigned_to_user_id;
+      if (!userId) continue;
+
+      if (!groupedData.has(userId)) {
+        // Find the specific registration for this hotel's yatra
+        const registration = room.assignedUser?.yatraRegistrations?.find(
+          reg => reg.yatra_id === hotel.yatra_id
+        );
+
+        groupedData.set(userId, {
+          registration_id: registration?.id || null,
+          pnr: room.assignedUser?.pnr || registration?.pnr || null,
+          number_of_traveller: room.assignedUser?.number_of_persons || registration?.number_of_persons || 0,
+          name: room.assignedUser?.name || registration?.name || null,
+          assigned_rooms: []
+        });
+      }
+
+      const userData = groupedData.get(userId);
+      userData.assigned_rooms.push({
+        room_number: room.room_number,
+        floor: room.floor
+      });
+    }
+
+    return Array.from(groupedData.values());
+  }
 }

@@ -10,6 +10,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
+  Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { HotelsService } from './hotels.service';
@@ -206,6 +209,33 @@ export class HotelsController {
       success: true,
       message: 'Hotel credentials generated successfully. Save the password — it will not be shown again.',
       data: result,
+    };
+  }
+
+  @Get('room-allotted-data')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hotel', 'admin', 'super_admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all room allotted data for the hotel' })
+  @ApiResponse({ status: 200, description: 'Room allotted data retrieved successfully' })
+  @ApiQuery({ name: 'hotelId', required: false, description: 'Hotel ID (required if not a hotel user)' })
+  async getRoomAllottedData(@Req() req: any, @Query('hotelId') hotelId?: string) {
+    let targetHotelId = hotelId;
+
+    // If user is a hotel, use their own hotel ID
+    if (req.user.role === 'hotel') {
+      targetHotelId = req.user.id;
+    }
+
+    if (!targetHotelId) {
+      throw new BadRequestException('Hotel ID is required');
+    }
+
+    const data = await this.hotelsService.getRoomAllottedData(targetHotelId);
+    return {
+      success: true,
+      message: 'Room allotted data retrieved successfully',
+      data: data,
     };
   }
 }

@@ -29,7 +29,7 @@ export class Hotel {
   @Column({ type: 'text' })
   address!: string;
 
-  @Column({ type: 'varchar', length: 500, nullable: true })
+  @Column({ type: 'varchar', length: 5000, nullable: true })
   map_link!: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true, name: 'distance_from_bhavan' })
