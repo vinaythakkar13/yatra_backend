@@ -79,4 +79,14 @@ export class QueryRegistrationDto {
   @IsOptional()
   @IsEnum(DocumentStatus)
   documentStatus?: DocumentStatus;
+
+  @ApiPropertyOptional({ description: 'Filter by room assignment status (all, assigned, non_assigned)', default: 'all' })
+  @IsOptional()
+  @IsString()
+  roomAssignmentStatus?: string = 'all';
+
+  @ApiPropertyOptional({ description: 'Filter by arrival date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  arrivalDate?: string;
 }

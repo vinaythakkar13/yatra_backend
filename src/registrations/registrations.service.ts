@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, DataSource, Like, Or, Not, IsNull } from 'typeorm';
+import { Repository, FindOptionsWhere, DataSource, Like, Or, Not, IsNull, Brackets } from 'typeorm';
 import { YatraRegistration, RegistrationStatus, DocumentStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
 import { User } from '../entities/user.entity';
@@ -271,82 +271,85 @@ export class RegistrationsService {
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
-    // Build base where clause
-    const baseWhere: any = {};
+    // Build query builder
+    const queryBuilder = this.registrationRepository.createQueryBuilder('registration')
+      .leftJoinAndSelect('registration.user', 'user')
+      .leftJoinAndSelect('user.assignedRooms', 'assignedRooms')
+      .leftJoinAndSelect('assignedRooms.hotel', 'hotel')
+      .leftJoinAndSelect('registration.yatra', 'yatra')
+      .leftJoinAndSelect('registration.persons', 'persons');
+
+    // Apply base filters
     if (query.yatraId) {
-      baseWhere.yatra_id = query.yatraId;
+      queryBuilder.andWhere('registration.yatra_id = :yatraId', { yatraId: query.yatraId });
     }
 
-    // Handle filterMode
     if (query.filterMode === RegistrationFilterMode.GENERAL) {
-      baseWhere.status = Not(RegistrationStatus.CANCELLED);
+      queryBuilder.andWhere('registration.status != :cancelledStatus', { cancelledStatus: RegistrationStatus.CANCELLED });
     } else if (query.filterMode === RegistrationFilterMode.CANCELLED) {
-      baseWhere.status = RegistrationStatus.CANCELLED;
+      queryBuilder.andWhere('registration.status = :cancelledStatus', { cancelledStatus: RegistrationStatus.CANCELLED });
     } else if (query.status) {
-      // If status is explicitly provided, it overrides filterMode (or is used when filterMode is 'all')
-      baseWhere.status = query.status;
+      queryBuilder.andWhere('registration.status = :status', { status: query.status });
     }
 
     if (query.documentStatus) {
-      baseWhere.document_status = query.documentStatus;
+      queryBuilder.andWhere('registration.document_status = :documentStatus', { documentStatus: query.documentStatus });
     }
 
     if (query.pnr) {
-      baseWhere.pnr = query.pnr.toUpperCase();
+      queryBuilder.andWhere('registration.pnr = :pnr', { pnr: query.pnr.toUpperCase() });
     }
 
     if (query.state) {
-      baseWhere.boarding_state = query.state;
+      queryBuilder.andWhere('registration.boarding_state = :state', { state: query.state });
     }
 
     if (query.ticketType && query.ticketType !== 'all') {
       if (query.ticketType === 'Not added') {
-        baseWhere.ticket_type = IsNull();
+        queryBuilder.andWhere('registration.ticket_type IS NULL');
       } else {
-        baseWhere.ticket_type = query.ticketType;
+        queryBuilder.andWhere('registration.ticket_type = :ticketType', { ticketType: query.ticketType });
       }
     }
 
-    // Handle new split registration filters
+    if (query.arrivalDate) {
+      queryBuilder.andWhere('registration.arrival_date = :arrivalDate', { arrivalDate: query.arrivalDate });
+    }
+
     if (query.originalPnr) {
-      baseWhere.original_pnr = query.originalPnr.toUpperCase();
+      queryBuilder.andWhere('registration.original_pnr = :originalPnr', { originalPnr: query.originalPnr.toUpperCase() });
     }
 
     if (query.splitPnr) {
-      baseWhere.split_pnr = query.splitPnr.toUpperCase();
+      queryBuilder.andWhere('registration.split_pnr = :splitPnr', { splitPnr: query.splitPnr.toUpperCase() });
     }
 
     if (query.onlySplitRegistrations) {
-      baseWhere.split_pnr = Not(IsNull());
+      queryBuilder.andWhere('registration.split_pnr IS NOT NULL');
     }
 
-    // Handle search with OR conditions across name, PNR, and WhatsApp number
-    let whereClause: any;
+    // Room assignment filter (on user entity)
+    if (query.roomAssignmentStatus === 'assigned') {
+      queryBuilder.andWhere('user.is_room_assigned = :isAssigned', { isAssigned: true });
+    } else if (query.roomAssignmentStatus === 'non_assigned') {
+      queryBuilder.andWhere('user.is_room_assigned = :isAssigned', { isAssigned: false });
+    }
+
     if (query.search) {
-      whereClause = [
-        { ...baseWhere, name: Like(`%${query.search}%`) },
-        { ...baseWhere, pnr: Like(`%${query.search}%`) },
-        { ...baseWhere, whatsapp_number: Like(`%${query.search}%`) },
-      ];
-    } else {
-      whereClause = baseWhere;
+      queryBuilder.andWhere(
+        new Brackets((qb) => {
+          qb.where('registration.name LIKE :search', { search: `%${query.search}%` })
+            .orWhere('registration.pnr LIKE :search', { search: `%${query.search}%` })
+            .orWhere('registration.whatsapp_number LIKE :search', { search: `%${query.search}%` });
+        }),
+      );
     }
 
-    const [registrations, total] = await this.registrationRepository.findAndCount({
-      where: whereClause,
-      relations: {
-        user: {
-          assignedRooms: {
-            hotel: true,
-          },
-        },
-        yatra: true,
-        persons: true,
-      },
-      skip,
-      take: limit,
-      order: { created_at: 'DESC' },
-    });
+    const [registrations, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy('registration.created_at', 'DESC')
+      .getManyAndCount();
 
     const sanitizedRegistrations = registrations.map(reg => this.sanitizeRegistration(reg));
 
