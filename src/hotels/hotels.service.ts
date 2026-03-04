@@ -162,6 +162,7 @@ export class HotelsService {
       check_in_time: createHotelDto.checkInTime,
       check_out_time: createHotelDto.checkOutTime,
       has_elevator: createHotelDto.hasElevator !== undefined ? createHotelDto.hasElevator : false,
+      strict_rule: createHotelDto.strict_rule !== undefined ? createHotelDto.strict_rule : false,
       total_floors: createHotelDto.totalFloors || (createHotelDto.floors ? createHotelDto.floors.length : 0),
       floors: createHotelDto.floors || [],
       advance_paid_amount: createHotelDto.advancePaidAmount !== undefined ? createHotelDto.advancePaidAmount : 0,
@@ -235,6 +236,7 @@ export class HotelsService {
       if (updateHotelDto.checkInTime !== undefined) updateData.check_in_time = updateHotelDto.checkInTime;
       if (updateHotelDto.checkOutTime !== undefined) updateData.check_out_time = updateHotelDto.checkOutTime;
       if (updateHotelDto.hasElevator !== undefined) updateData.has_elevator = updateHotelDto.hasElevator;
+      if (updateHotelDto.strict_rule !== undefined) updateData.strict_rule = updateHotelDto.strict_rule;
       if (updateHotelDto.is_active !== undefined) updateData.is_active = updateHotelDto.is_active;
       if (updateHotelDto.advancePaidAmount !== undefined) updateData.advance_paid_amount = updateHotelDto.advancePaidAmount;
       if (updateHotelDto.fullPaymentPaid !== undefined) updateData.full_payment_paid = updateHotelDto.fullPaymentPaid;

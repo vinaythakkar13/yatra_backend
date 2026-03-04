@@ -92,6 +92,9 @@ export class Hotel {
   @Column({ type: 'boolean', default: false, name: 'full_payment_paid' })
   full_payment_paid: boolean;
 
+  @Column({ type: 'boolean', default: false, name: 'strict_rule' })
+  strict_rule: boolean;
+
   @Column({ type: 'varchar', length: 20, nullable: true, unique: true, name: 'login_id' })
   login_id: string | null;
 

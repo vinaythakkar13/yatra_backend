@@ -172,6 +172,11 @@ export class UpdateHotelDto {
   @IsBoolean()
   fullPaymentPaid?: boolean;
 
+  @ApiPropertyOptional({ description: 'Whether strict rule applies' })
+  @IsOptional()
+  @IsBoolean()
+  strict_rule?: boolean;
+
   @ApiPropertyOptional({ description: 'Total number of floors', minimum: 1, maximum: 100 })
   @IsOptional()
   @IsInt()

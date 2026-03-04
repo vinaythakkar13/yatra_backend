@@ -189,4 +189,9 @@ export class CreateHotelDto {
   @IsOptional()
   @IsBoolean()
   fullPaymentPaid?: boolean;
+
+  @ApiPropertyOptional({ description: 'Whether strict rule applies', default: false })
+  @IsOptional()
+  @IsBoolean()
+  strict_rule?: boolean;
 }
