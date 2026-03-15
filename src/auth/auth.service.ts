@@ -169,6 +169,7 @@ export class AuthService {
   async hotelLogin(hotelLoginDto: HotelLoginDto, ipAddress: string, userAgent: string) {
     const hotel = await this.hotelRepository.findOne({
       where: { login_id: hotelLoginDto.login_id },
+      relations: ['yatra'],
     });
 
     console.log('[hotelLogin] Hotel found:', !!hotel);
@@ -202,6 +203,14 @@ export class AuthService {
         login_id: hotel.login_id,
         name: hotel.name,
         role: 'hotel',
+        start_date: hotel.start_date,
+        end_date: hotel.end_date,
+        yatra: hotel.yatra ? {
+          id: hotel.yatra.id,
+          name: hotel.yatra.name,
+          start_date: hotel.yatra.start_date,
+          end_date: hotel.yatra.end_date,
+        } : null,
       },
     };
   }
