@@ -878,12 +878,13 @@ export class RegistrationsService {
       hotel: null,
     };
 
-    // Check if user has assigned rooms
+    // Check if user has assigned rooms and room assignment is active
     if (
       registration.user &&
       registration.user.is_room_assigned &&
       registration.user.assignedRooms &&
-      registration.user.assignedRooms.length > 0
+      registration.user.assignedRooms.length > 0 &&
+      registration.yatra?.is_room_assignment_active
     ) {
       const assignedRooms = registration.user.assignedRooms;
       const hotel = assignedRooms[0].hotel;
