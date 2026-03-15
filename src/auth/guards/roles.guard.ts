@@ -26,7 +26,7 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.admin;
+    const user = request.user || request.admin;
 
     if (!user) {
       throw new ForbiddenException('Authentication required');

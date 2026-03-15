@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { Hotel } from '../entities/hotel.entity';
@@ -9,7 +9,8 @@ import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { QueryHotelDto } from './dto/query-hotel.dto';
 import { AssignRoomDto } from './dto/assign-room.dto';
 import { RoomAssignmentStatus, User } from '../entities/user.entity';
-import { YatraRegistration } from '../entities/yatra-registration.entity';
+import { YatraRegistration, CheckInStatus } from '../entities/yatra-registration.entity';
+import { CheckInOutDto, CheckInActionType } from './dto/check-in-out.dto';
 import { In } from 'typeorm';
 import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
 
@@ -48,6 +49,8 @@ export class HotelsService {
         order: { created_at: 'DESC' },
       });
 
+      await this.enrichHotelsWithRegistrationData(hotels);
+
       return {
         data: hotels,
         pagination: {
@@ -73,6 +76,8 @@ export class HotelsService {
       take: limit,
       order: { created_at: 'DESC' },
     });
+
+    await this.enrichHotelsWithRegistrationData(hotels);
 
     return {
       data: hotels,
@@ -131,6 +136,8 @@ export class HotelsService {
     if (!hotel) {
       throw new NotFoundException('Hotel not found');
     }
+
+    await this.enrichHotelsWithRegistrationData([hotel]);
 
     return hotel;
   }
@@ -380,7 +387,7 @@ export class HotelsService {
     // 1. Find Registration
     const registration = await this.registrationRepository.findOne({
       where: { id: dto.registrationId },
-      relations: { user: true },
+      relations: { user: true, yatra: true },
     });
 
     if (!registration) {
@@ -459,10 +466,12 @@ export class HotelsService {
     }
 
     // 6. Update user record
+    const statusToAssign = registration.yatra?.is_room_assignment_active ? RoomAssignmentStatus.ALLOTED : RoomAssignmentStatus.DRAFT;
+
     await this.userRepository.update(registration.user_id, {
       is_room_assigned: assignedRoomIds.length > 0,
       assigned_room_id: assignedRoomIds.length > 0 ? assignedRoomIds[0] : null,
-      room_assignment_status: assignedRoomIds.length > 0 ? RoomAssignmentStatus.DRAFT : null,
+      room_assignment_status: assignedRoomIds.length > 0 ? statusToAssign : null,
     });
 
     return {
@@ -568,11 +577,63 @@ export class HotelsService {
       { room_assignment_status: RoomAssignmentStatus.CONFIRMED }
     );
 
+    yatra.is_room_assignment_active = true;
+    await this.yatraRepository.save(yatra);
+
     return {
       message: 'All draft assignments finalized',
       count: userIds.length,
       yatraId
     };
+  }
+
+  private async enrichHotelsWithRegistrationData(hotels: Hotel[]) {
+    if (!hotels || hotels.length === 0) return;
+
+    const userIds = new Set<string>();
+    for (const hotel of hotels) {
+      if (hotel.rooms) {
+        for (const room of hotel.rooms) {
+          if (room.is_occupied && room.assigned_to_user_id) {
+            userIds.add(room.assigned_to_user_id);
+          }
+        }
+      }
+    }
+
+    if (userIds.size === 0) return;
+
+    const registrations = await this.registrationRepository.find({
+      where: {
+        user_id: In(Array.from(userIds)),
+      },
+      select: ['user_id', 'yatra_id', 'name', 'pnr'],
+    });
+
+    const regMap = new Map<string, YatraRegistration>();
+    for (const reg of registrations) {
+      regMap.set(`${reg.user_id}_${reg.yatra_id}`, reg);
+    }
+
+    for (const hotel of hotels) {
+      if (hotel.rooms) {
+        for (const room of hotel.rooms) {
+          if (room.is_occupied && room.assigned_to_user_id) {
+            const reg = regMap.get(`${room.assigned_to_user_id}_${hotel.yatra_id}`);
+            if (reg) {
+              (room as any).assigned_user_name = reg.name;
+              (room as any).pnr_no = reg.pnr;
+            } else {
+              (room as any).assigned_user_name = null;
+              (room as any).pnr_no = null;
+            }
+          } else {
+            (room as any).assigned_user_name = null;
+            (room as any).pnr_no = null;
+          }
+        }
+      }
+    }
   }
 
   private async updateHotelStatistics(hotelId: string, entityManager?: any) {
@@ -671,23 +732,41 @@ export class HotelsService {
   async getRoomAllottedData(hotelId: string) {
     const hotel = await this.hotelRepository.findOne({
       where: { id: hotelId },
-      select: ['id', 'yatra_id']
+      select: ['id', 'yatra_id'],
     });
 
     if (!hotel) {
       throw new NotFoundException('Hotel not found');
     }
 
+    // Step 1: Get all occupied rooms in this hotel (no deep relation join)
     const rooms = await this.roomRepository.find({
       where: { hotel_id: hotelId, is_occupied: true },
-      relations: {
-        assignedUser: {
-          yatraRegistrations: true
-        }
-      }
     });
 
-    // Group rooms by user ID
+    if (rooms.length === 0) {
+      return [];
+    }
+
+    // Step 2: Collect unique user IDs assigned to rooms
+    const userIds = [...new Set(rooms.map(r => r.assigned_to_user_id).filter(Boolean))] as string[];
+
+    // Step 3: Fetch registrations for these users in this hotel's yatra in one query
+    const registrations = await this.registrationRepository.find({
+      where: {
+        yatra_id: hotel.yatra_id,
+        user_id: In(userIds),
+      },
+      select: [
+        'id', 'user_id', 'pnr', 'name', 'number_of_persons',
+        'check_in_status', 'checked_in_at', 'checked_out_at',
+      ],
+    });
+
+    // Build a map: userId -> registration
+    const regByUserId = new Map(registrations.map(r => [r.user_id, r]));
+
+    // Step 4: Group rooms by user, attach registration data
     const groupedData = new Map<string, any>();
 
     for (const room of rooms) {
@@ -695,27 +774,100 @@ export class HotelsService {
       if (!userId) continue;
 
       if (!groupedData.has(userId)) {
-        // Find the specific registration for this hotel's yatra
-        const registration = room.assignedUser?.yatraRegistrations?.find(
-          reg => reg.yatra_id === hotel.yatra_id
-        );
-
+        const reg = regByUserId.get(userId);
         groupedData.set(userId, {
-          registration_id: registration?.id || null,
-          pnr: room.assignedUser?.pnr || registration?.pnr || null,
-          number_of_traveller: room.assignedUser?.number_of_persons || registration?.number_of_persons || 0,
-          name: room.assignedUser?.name || registration?.name || null,
-          assigned_rooms: []
+          registration_id: reg?.id ?? null,
+          pnr: reg?.pnr ?? null,
+          name: reg?.name ?? null,
+          number_of_traveller: reg?.number_of_persons ?? 0,
+          check_in_status: reg?.check_in_status ?? 'not_checked_in',
+          checked_in_at: reg?.checked_in_at ?? null,
+          checked_out_at: reg?.checked_out_at ?? null,
+          assigned_rooms: [],
         });
       }
 
-      const userData = groupedData.get(userId);
-      userData.assigned_rooms.push({
+      groupedData.get(userId).assigned_rooms.push({
         room_number: room.room_number,
-        floor: room.floor
+        floor: room.floor,
       });
     }
 
     return Array.from(groupedData.values());
+  }
+
+  /**
+   * Check-in or check-out a guest by PNR.
+   * Only the hotel that has the PNR assigned to one of its rooms can perform this action.
+   */
+  async checkInOut(dto: CheckInOutDto, hotelId: string) {
+    const normalizedPnr = dto.pnr.toUpperCase();
+
+    // 1. Find the registration by PNR
+    const registration = await this.registrationRepository.findOne({
+      where: { pnr: normalizedPnr },
+      relations: { user: true },
+    });
+
+    if (!registration) {
+      throw new NotFoundException(`No registration found for PNR: ${normalizedPnr}`);
+    }
+
+    const userId = registration.user_id;
+
+    // 2. Verify that this hotel has a room assigned to this user
+    const assignedRoom = await this.roomRepository.findOne({
+      where: { hotel_id: hotelId, assigned_to_user_id: userId, is_occupied: true },
+    });
+
+    if (!assignedRoom) {
+      throw new ForbiddenException(
+        `${registration.name} is not assigned to rooms in your hotel`,
+      );
+    }
+
+    // 3. Apply validation based on action type
+    const currentStatus = registration.check_in_status;
+
+    if (dto.type === CheckInActionType.CHECK_IN) {
+      if (currentStatus === CheckInStatus.CHECKED_IN) {
+        throw new BadRequestException(
+          `${registration.name} has already checked in`,
+        );
+      }
+      if (currentStatus === CheckInStatus.CHECKED_OUT) {
+        throw new BadRequestException(
+          `${registration.name} has already checked out and cannot check in again`,
+        );
+      }
+
+      registration.check_in_status = CheckInStatus.CHECKED_IN;
+      registration.checked_in_at = new Date();
+    } else {
+      // CHECK_OUT
+      if (currentStatus === CheckInStatus.NOT_CHECKED_IN) {
+        throw new BadRequestException(
+          `${registration.name} has not checked in yet`,
+        );
+      }
+      if (currentStatus === CheckInStatus.CHECKED_OUT) {
+        throw new BadRequestException(
+          `${registration.name} has already checked out`,
+        );
+      }
+
+      registration.check_in_status = CheckInStatus.CHECKED_OUT;
+      registration.checked_out_at = new Date();
+    }
+
+    await this.registrationRepository.save(registration);
+
+    return {
+      pnr: normalizedPnr,
+      name: registration.name,
+      check_in_status: registration.check_in_status,
+      checked_in_at: registration.checked_in_at,
+      checked_out_at: registration.checked_out_at,
+    };
   }
 }

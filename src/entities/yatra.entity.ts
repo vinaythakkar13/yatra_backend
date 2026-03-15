@@ -61,4 +61,7 @@ export class Yatra {
 
   @OneToMany(() => YatraRegistration, (registration) => registration.yatra)
   registrations: YatraRegistration[];
+
+  @Column({ type: 'boolean', default: false })
+  is_room_assignment_active: boolean;
 }

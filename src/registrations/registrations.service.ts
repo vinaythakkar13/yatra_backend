@@ -855,6 +855,9 @@ export class RegistrationsService {
         document_status: registration.document_status,
         document_rejection_reason: registration.document_rejection_reason,
         ticket_type: registration.ticket_type,
+        check_in_status: registration.check_in_status,
+        checked_in_at: registration.checked_in_at,
+        checked_out_at: registration.checked_out_at,
         created_at: registration.created_at,
         updated_at: registration.updated_at,
       },
@@ -875,10 +878,10 @@ export class RegistrationsService {
       hotel: null,
     };
 
-    // Check if user has assigned rooms AND status is alloted
+    // Check if user has assigned rooms
     if (
       registration.user &&
-      registration.user.room_assignment_status === RoomAssignmentStatus.ALLOTED &&
+      registration.user.is_room_assigned &&
       registration.user.assignedRooms &&
       registration.user.assignedRooms.length > 0
     ) {
@@ -1024,6 +1027,11 @@ export class RegistrationsService {
         ')', { yatraId })
       .andWhere('is_room_assigned = :isAssigned', { isAssigned: true })
       .execute();
+
+    const isRoomAssignmentActive = updateDto.status === RoomAssignmentStatus.ALLOTED || updateDto.status === RoomAssignmentStatus.CONFIRMED;
+    await this.yatraRepository.update(yatraId, {
+      is_room_assignment_active: isRoomAssignmentActive,
+    });
 
     return {
       affected: updateResult.affected || 0,

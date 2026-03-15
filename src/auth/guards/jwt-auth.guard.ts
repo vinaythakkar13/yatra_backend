@@ -4,13 +4,13 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { AdminUser } from '../../entities/admin-user.entity';
 import { AdminSession } from '../../entities/admin-session.entity';
+import { Hotel } from '../../entities/hotel.entity';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -21,7 +21,8 @@ export class JwtAuthGuard implements CanActivate {
     @InjectRepository(AdminSession)
     private adminSessionRepository: Repository<AdminSession>,
     private configService: ConfigService,
-  ) {}
+    private dataSource: DataSource,
+  ) { }
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
@@ -48,7 +49,33 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token');
     }
 
-    // Hash token and check session
+    // ── Hotel token path ──────────────────────────────────────────────────────
+    // Hotel tokens have role = 'hotel' and are stateless (no AdminSession row).
+    // Use DataSource directly so no per-module TypeOrmModule.forFeature is needed.
+    if (decoded.role === 'hotel') {
+      const hotel = await this.dataSource
+        .getRepository(Hotel)
+        .findOne({ where: { id: decoded.id } });
+
+      if (!hotel) {
+        throw new UnauthorizedException('Hotel not found');
+      }
+
+      if (!hotel.is_active) {
+        throw new UnauthorizedException('Hotel account is deactivated');
+      }
+
+      request.user = {
+        id: hotel.id,
+        login_id: hotel.login_id,
+        name: hotel.name,
+        role: 'hotel',
+      };
+
+      return true;
+    }
+
+    // ── Admin token path ──────────────────────────────────────────────────────
     const tokenHash = this.hashToken(token);
     const session = await this.adminSessionRepository.findOne({
       where: {
@@ -88,14 +115,16 @@ export class JwtAuthGuard implements CanActivate {
       last_activity: new Date(),
     });
 
-    // Attach admin to request
-    request.admin = {
+    // Attach to request — populate both request.admin and request.user
+    const userPayload = {
       id: admin.id,
       email: admin.email,
       name: admin.name,
       role: admin.role,
       permissions: admin.permissions,
     };
+    request.admin = userPayload;
+    request.user = userPayload;
 
     return true;
   }

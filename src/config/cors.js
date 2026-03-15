@@ -5,6 +5,7 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'http://localhost:5000',
   'http://localhost:3001',
+  'https://procambial-lochlan-sarcophagous.ngrok-free.dev',
   ...envOrigins
 ];
 
@@ -64,6 +65,7 @@ const corsErrorHandler = (err, req, res, next) => {
       message: err.message
     });
   }
+  console.log(err, "err");
   next(err);
 };
 

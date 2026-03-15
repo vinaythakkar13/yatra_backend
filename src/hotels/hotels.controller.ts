@@ -21,6 +21,7 @@ import { UpdateHotelDto } from './dto/update-hotel.dto';
 import { QueryHotelDto } from './dto/query-hotel.dto';
 import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
 import { AssignRoomDto } from './dto/assign-room.dto';
+import { CheckInOutDto } from './dto/check-in-out.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -53,6 +54,33 @@ export class HotelsController {
       message: 'Available hotels retrieved successfully',
       data: result.data,
       pagination: result.pagination,
+    };
+  }
+
+  @Get('room-allotted-data')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('hotel', 'admin', 'super_admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all room allotted data for the hotel' })
+  @ApiResponse({ status: 200, description: 'Room allotted data retrieved successfully' })
+  @ApiQuery({ name: 'hotelId', required: false, description: 'Hotel ID (required if not a hotel user)' })
+  async getRoomAllottedData(@Req() req: any, @Query('hotelId') hotelId?: string) {
+    let targetHotelId = hotelId;
+
+    // If user is a hotel, use their own hotel ID
+    if (req.user.role === 'hotel') {
+      targetHotelId = req.user.id;
+    }
+
+    if (!targetHotelId) {
+      throw new BadRequestException('Hotel ID is required');
+    }
+
+    const data = await this.hotelsService.getRoomAllottedData(targetHotelId);
+    return {
+      success: true,
+      message: 'Room allotted data retrieved successfully',
+      data: data,
     };
   }
 
@@ -212,30 +240,23 @@ export class HotelsController {
     };
   }
 
-  @Get('room-allotted-data')
+  @Post('check-in-out')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('hotel', 'admin', 'super_admin')
+  @Roles('hotel')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all room allotted data for the hotel' })
-  @ApiResponse({ status: 200, description: 'Room allotted data retrieved successfully' })
-  @ApiQuery({ name: 'hotelId', required: false, description: 'Hotel ID (required if not a hotel user)' })
-  async getRoomAllottedData(@Req() req: any, @Query('hotelId') hotelId?: string) {
-    let targetHotelId = hotelId;
-
-    // If user is a hotel, use their own hotel ID
-    if (req.user.role === 'hotel') {
-      targetHotelId = req.user.id;
-    }
-
-    if (!targetHotelId) {
-      throw new BadRequestException('Hotel ID is required');
-    }
-
-    const data = await this.hotelsService.getRoomAllottedData(targetHotelId);
+  @ApiOperation({ summary: 'Check-in or check-out a guest by PNR (Hotel portal only)' })
+  @ApiResponse({ status: 200, description: 'Check-in/out recorded successfully' })
+  @ApiResponse({ status: 400, description: 'Guest already checked in/out or invalid state' })
+  @ApiResponse({ status: 403, description: 'PNR not assigned to your hotel' })
+  @ApiResponse({ status: 404, description: 'Registration not found for given PNR' })
+  @HttpCode(HttpStatus.OK)
+  async checkInOut(@Req() req: any, @Body() dto: CheckInOutDto) {
+    const hotelId = req.user.id;
+    const result = await this.hotelsService.checkInOut(dto, hotelId);
     return {
       success: true,
-      message: 'Room allotted data retrieved successfully',
-      data: data,
+      message: dto.type === 'check_in' ? `${result.name} checked in successfully` : `${result.name} checked out successfully`,
+      data: result,
     };
   }
 }

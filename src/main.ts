@@ -7,53 +7,44 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bodyParser: false,
     rawBody: false,
-    logger: ['error', 'warn'], // Only show errors and warnings from Nest
+    logger: ['error', 'warn'],
+  });
+
+  // ============================================================
+  // 🔍 RAW REQUEST LOGGER — logs EVERY request before anything else
+  // This runs before CORS, before validation, before everything.
+  // If a request doesn't appear here, it never reached NestJS.
+  // ============================================================
+  const expressApp = app.getHttpAdapter().getInstance();
+
+  expressApp.use((req: any, res: any, next: any) => {
+    const now = new Date().toISOString();
+    console.log('\n─────────────────────────────────────────');
+    console.log(`📥 [${now}] INCOMING REQUEST`);
+    console.log(`   Method  : ${req.method}`);
+    console.log(`   URL     : ${req.url}`);
+    console.log(`   Origin  : ${req.headers['origin'] || '⚠️  No Origin header'}`);
+    console.log(`   Host    : ${req.headers['host']}`);
+    console.log(`   Referer : ${req.headers['referer'] || 'none'}`);
+    console.log(`   UA      : ${req.headers['user-agent']}`);
+    console.log(`   IP      : ${req.ip || req.connection?.remoteAddress}`);
+    console.log('─────────────────────────────────────────\n');
+    next();
   });
 
   // Configure body parser limits for large base64 image uploads (20MB)
-  const expressApp = app.getHttpAdapter().getInstance();
   expressApp.use(require('express').json({ limit: '20mb' }));
   expressApp.use(require('express').urlencoded({ extended: true, limit: '20mb' }));
 
-  // CORS Configuration
-  const rawOrigins = process.env.CORS_ORIGIN;
-  const corsOrigins = rawOrigins
-    ? rawOrigins.split(',').map(o => o.trim()).filter(Boolean)
-    : [];
-
-  const allowedPatterns = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5001',
-    'http://127.0.0.1:3000',
-    'http://[::1]:3000',
-    /^http:\/\/192\.168\.\d+\.\d+(:[0-9]+)?$/, // 192.168.x.x
-    /^http:\/\/10\.\d+\.\d+\.\d+(:[0-9]+)?$/,    // 10.x.x.x
-    /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+(:[0-9]+)?$/, // 172.16.x.x to 172.31.x.x
-    /\.ngrok-free\.app$/,
-    ...corsOrigins,
-  ];
-
+  // ============================================================
+  // ⚠️  TEMPORARY: Allow all origins — revert before production
+  // ============================================================
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      // Allow requests with no origin (like curl or mobile apps or same-origin)
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      const isAllowed = allowedPatterns.some(pattern => {
-        if (pattern instanceof RegExp) {
-          return pattern.test(origin);
-        }
-        return pattern === origin || pattern === `${origin}/`;
-      });
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+      console.log(`🌐 [CORS] Origin received: "${origin || 'NO ORIGIN'}"`);
+      callback(null, true); // Allow everything
     },
+    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -76,7 +67,6 @@ async function bootstrap() {
       'Accept-Encoding',
       'ngrok-skip-browser-warning',
     ],
-    credentials: true,
     maxAge: 86400,
   });
 
@@ -91,8 +81,6 @@ async function bootstrap() {
       },
     }),
   );
-
-  // Global interceptors and filters are registered in AppModule providers
 
   // Swagger Documentation
   const config = new DocumentBuilder()
@@ -118,19 +106,16 @@ async function bootstrap() {
     customSiteTitle: 'Yatra API Documentation',
   });
 
-  // API docs JSON endpoint
-  app.getHttpAdapter().get('/api-docs.json', (req, res) => {
+  app.getHttpAdapter().get('/api-docs.json', (req: any, res: any) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(document);
   });
 
-  // Prefix for all routes
   app.setGlobalPrefix('api');
 
   const port = process.env.PORT || 5000;
   await app.listen(port);
 
-  // Database Connection Message
   const isPreview = process.env.NODE_ENV === 'preview' || process.env.NODE_ENV === 'development';
   const suffix = isPreview ? '_PREVIEW' : '';
   const dbName = process.env[`DB_NAME${suffix}`] || process.env.DB_NAME || 'yatra_db';
@@ -138,7 +123,7 @@ async function bootstrap() {
   console.log(`\n✅ Database [${dbName}] connected successfully`);
   console.log(`🚀 Server running at http://localhost:${port}`);
   console.log(`📚 API Documentation: http://localhost:${port}/api-docs\n`);
+  console.log(`🔍 Request logger ACTIVE — watching all incoming traffic\n`);
 }
 
 bootstrap();
-

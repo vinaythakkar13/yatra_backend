@@ -28,6 +28,12 @@ export enum DocumentStatus {
   REJECTED = 'rejected',
 }
 
+export enum CheckInStatus {
+  NOT_CHECKED_IN = 'not_checked_in',
+  CHECKED_IN = 'checked_in',
+  CHECKED_OUT = 'checked_out',
+}
+
 @Entity('yatra_registrations')
 @Index('idx_registration_user', ['user_id'])
 @Index('idx_registration_yatra', ['yatra_id'])
@@ -129,6 +135,20 @@ export class YatraRegistration {
 
   @Column({ type: 'uuid', nullable: true, name: 'cancelled_by_admin_id' })
   cancelled_by_admin_id: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: CheckInStatus,
+    default: CheckInStatus.NOT_CHECKED_IN,
+    name: 'check_in_status',
+  })
+  check_in_status: CheckInStatus;
+
+  @Column({ type: 'datetime', nullable: true, name: 'checked_in_at' })
+  checked_in_at: Date | null;
+
+  @Column({ type: 'datetime', nullable: true, name: 'checked_out_at' })
+  checked_out_at: Date | null;
 
   @CreateDateColumn({
     name: 'created_at',

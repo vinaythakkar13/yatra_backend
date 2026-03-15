@@ -33,14 +33,14 @@ export class AdminDashboardService {
             return {
                 stats,
                 registrationsAnalytics: registrationAnalytics,
-                hotels,
+                hotelAnalytics: hotels,
             };
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
             return {
                 stats: null,
                 registrationsAnalytics: null,
-                hotels: [],
+                hotelAnalytics: [],
             };
         }
     }
@@ -48,6 +48,7 @@ export class AdminDashboardService {
     private async getStats(yatraId: string) {
         const registrations = await this.registrationRepository.find({
             where: { yatra_id: yatraId },
+            relations: ['user'], // Added relation to user for allotment checking
         });
 
         const activeRegistrations = registrations.filter(r => r.status !== RegistrationStatus.CANCELLED);
@@ -57,6 +58,14 @@ export class AdminDashboardService {
 
         const totalPeople = activeRegistrations.reduce((sum, r) => sum + r.number_of_persons, 0);
 
+        // Allotted registrations count users who have a room assigned
+        const allottedRegistrations = activeRegistrations.filter(r => r.user && r.user.is_room_assigned).length;
+
+        // Pending allotment counts active registrations that do not have a room assigned
+        const pendingAllotmentRegistrations = activeRegistrations.filter(r => !r.user || !r.user.is_room_assigned);
+        const pendingAllotment = pendingAllotmentRegistrations.length;
+        const pendingPeoplestobealloted = pendingAllotmentRegistrations.reduce((sum, r) => sum + r.number_of_persons, 0);
+
         // Hotels data for available rooms/beds
         const hotels = await this.hotelRepository.find({
             where: { yatra_id: yatraId, is_active: true },
@@ -64,10 +73,6 @@ export class AdminDashboardService {
 
         const availableRooms = hotels.reduce((sum, h) => sum + (h.available_rooms || 0), 0);
 
-        // Beds calculation: this might need more logic if available_beds isn't a direct field
-        // In hotel.entity.ts, I don't see available_beds. Let's check room.entity.ts again or calculate from rooms.
-        // Actually, let's look at the requirement example: "availableBeds": 400
-        // I'll calculate it from available rooms' beds.
         const rooms = await this.roomRepository.find({
             where: { hotel: { yatra_id: yatraId }, is_occupied: false },
         });
@@ -76,8 +81,9 @@ export class AdminDashboardService {
         return {
             totalRegistrations: activeRegistrations.length,
             totalPeople,
-            allottedRegistrations: approvedRegistrations.length,
-            pendingAllotment: pendingRegistrations.length,
+            allottedRegistrations,
+            pendingAllotment,
+            pendingPeoplestobealloted,
             cancelledRegistrations: cancelledRegistrations.length,
             availableRooms,
             availableBeds,
