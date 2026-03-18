@@ -3,10 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
 import { User } from '../entities/user.entity';
 import { Gender } from '../enums/gender.enum';
-import { YatraRegistration, RegistrationStatus, DocumentStatus } from '../entities/yatra-registration.entity';
+import { YatraRegistration, RegistrationStatus, DocumentStatus, CheckInStatus } from '../entities/yatra-registration.entity';
 import { Person } from '../entities/person.entity';
 import { Hotel } from '../entities/hotel.entity';
 import { Room } from '../entities/room.entity';
+import { UserStatusQueryDto, UserStatusFilter } from './dto/user-status-query.dto';
 
 
 @Injectable()
@@ -21,6 +22,133 @@ export class AdminDashboardService {
         @InjectRepository(Room)
         private roomRepository: Repository<Room>,
     ) { }
+
+    async getUserStatusData(query: UserStatusQueryDto) {
+        const page = query.page || 1;
+        const limit = query.limit || 10;
+        const skip = (page - 1) * limit;
+
+        const qb = this.registrationRepository.createQueryBuilder('registration')
+            .leftJoinAndSelect('registration.user', 'user')
+            .leftJoinAndSelect('user.assignedRooms', 'assignedRoom')
+            .leftJoinAndSelect('assignedRoom.hotel', 'hotel');
+
+        // Apply filters
+        if (query.yatraId) {
+            qb.andWhere('registration.yatra_id = :yatraId', { yatraId: query.yatraId });
+        }
+
+        // Only include non-cancelled registrations and only those with room assignments
+        qb.andWhere('registration.status != :cancelledStatus', { cancelledStatus: RegistrationStatus.CANCELLED });
+        qb.andWhere('user.is_room_assigned = :isRoomAssigned', { isRoomAssigned: true });
+
+        if (query.hotelId && query.hotelId !== 'all') {
+            qb.andWhere('assignedRoom.hotel_id = :hotelId', { hotelId: query.hotelId });
+        }
+
+        if (query.status && query.status !== UserStatusFilter.ALL) {
+            if (query.status === UserStatusFilter.ACQUIRED) {
+                qb.andWhere('registration.check_in_status IN (:...acquiredStatuses)', { 
+                    acquiredStatuses: [CheckInStatus.CHECKED_IN, CheckInStatus.CHECKED_OUT] 
+                });
+            } else if (query.status === UserStatusFilter.NOT_ACQUIRED) {
+                qb.andWhere('registration.check_in_status = :notAcquiredStatus', { 
+                    notAcquiredStatus: CheckInStatus.NOT_CHECKED_IN 
+                });
+            }
+        }
+
+        if (query.search) {
+            qb.andWhere('(registration.pnr LIKE :search OR registration.name LIKE :search OR registration.whatsapp_number LIKE :search OR hotel.name LIKE :search)', { search: `%${query.search}%` });
+        }
+
+        const [registrations, total] = await qb
+            .skip(skip)
+            .take(limit)
+            .orderBy('registration.created_at', 'DESC')
+            .getManyAndCount();
+
+        const formattedData = registrations.map(reg => {
+            const assignedRooms = reg.user?.assignedRooms || [];
+            const hotelName = assignedRooms.length > 0 && assignedRooms[0].hotel ? assignedRooms[0].hotel.name : null;
+            
+            // The phrasing required: pending, checked in, checked out
+            let displayStatus = 'pending';
+            if (reg.check_in_status === CheckInStatus.CHECKED_IN) {
+                displayStatus = 'checked in';
+            } else if (reg.check_in_status === CheckInStatus.CHECKED_OUT) {
+                displayStatus = 'checked out';
+            }
+
+            return {
+                id: reg.id,
+                userId: reg.user_id,
+                pnr: reg.pnr,
+                name: reg.name,
+                whatsappNumber: reg.whatsapp_number,
+                numberOfPersons: reg.number_of_persons,
+                hotelName: hotelName,
+                status: displayStatus,
+                roomAssigned: reg.user?.is_room_assigned || false,
+                assignedRooms: assignedRooms.map(room => ({
+                    room_number: room.room_number,
+                    floor: room.floor
+                }))
+            };
+        });
+
+        // Statistics calculation (using the same base filters)
+        const statsQb = this.registrationRepository.createQueryBuilder('registration')
+            .leftJoin('registration.user', 'user')
+            .leftJoin('user.assignedRooms', 'assignedRoom')
+            .leftJoin('assignedRoom.hotel', 'hotel');
+
+        if (query.yatraId) {
+            statsQb.andWhere('registration.yatra_id = :yatraId', { yatraId: query.yatraId });
+        }
+        statsQb.andWhere('registration.status != :cancelledStatus', { cancelledStatus: RegistrationStatus.CANCELLED });
+        
+        if (query.search) {
+            statsQb.andWhere('(registration.pnr LIKE :search OR registration.name LIKE :search OR registration.whatsapp_number LIKE :search OR hotel.name LIKE :search)', { search: `%${query.search}%` });
+        }
+
+        // Count for all registrations in the Yatra (for pendingAllotment context)
+        const allInYatraQb = statsQb.clone();
+        
+        // Count allotted vs pending allotment
+        const allottedCount = await allInYatraQb.clone().andWhere('user.is_room_assigned = :isAssigned', { isAssigned: true }).getCount();
+        const pendingAllotmentCount = await allInYatraQb.clone().andWhere('user.is_room_assigned = :isAssigned', { isAssigned: false }).getCount();
+
+        // Count acquired / not acquired ONLY for those who have a room assigned
+        const assignedOnlyQb = statsQb.clone().andWhere('user.is_room_assigned = :isAssigned', { isAssigned: true });
+        
+        const acquiredCount = await assignedOnlyQb.clone()
+            .andWhere('registration.check_in_status IN (:...acquiredStatuses)', { 
+                acquiredStatuses: [CheckInStatus.CHECKED_IN, CheckInStatus.CHECKED_OUT] 
+            }).getCount();
+
+        const notAcquiredCount = await assignedOnlyQb.clone()
+            .andWhere('registration.check_in_status = :notAcquiredStatus', { 
+                notAcquiredStatus: CheckInStatus.NOT_CHECKED_IN 
+            }).getCount();
+
+        return {
+            statistics: {
+                acquired: acquiredCount,
+                notAcquired: notAcquiredCount,
+                allotted: allottedCount,
+                pendingAllotment: pendingAllotmentCount,
+                total: allottedCount // Total represents the scope of the list (those assigned)
+            },
+            data: formattedData,
+            pagination: {
+                total, // Here total is also filtered by is_room_assigned true in the main qb
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            }
+        };
+    }
 
     async getDashboardData(yatraId: string) {
         try {

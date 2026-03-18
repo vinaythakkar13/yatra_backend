@@ -522,6 +522,13 @@ export class HotelsService {
       room_assignment_status: null,
     });
 
+    // Reset check-in status in registration
+    await this.registrationRepository.update(registration.id, {
+      check_in_status: CheckInStatus.NOT_CHECKED_IN,
+      checked_in_at: null,
+      checked_out_at: null,
+    });
+
     return {
       message: 'Room assignment removed successfully',
       releasedRoomsCount: assignedRooms.length,
