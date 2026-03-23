@@ -55,7 +55,7 @@ export class QueryRegistrationDto {
   @IsString()
   state?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by ticket type (all, TBS, Not added)' })
+  @ApiPropertyOptional({ description: 'Filter by ticket type (all, TBS, TATKAAL, Not added)' })
   @IsOptional()
   @IsString()
   ticketType?: string;

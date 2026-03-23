@@ -25,7 +25,8 @@ async function runFix() {
                 'GENERAL', 
                 'TBS', 
                 'WL', 
-                'RAC'
+                'RAC',
+                'TATKAAL'
             ) DEFAULT NULL
         `);
 

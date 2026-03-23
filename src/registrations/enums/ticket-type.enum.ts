@@ -9,4 +9,5 @@ export enum TicketType {
     TBS = 'TBS',
     WL = 'WL',
     RAC = 'RAC',
+    TATKAAL = 'TATKAAL'
 }
