@@ -91,8 +91,8 @@ export class AdminDashboardService {
                 status: displayStatus,
                 roomAssigned: reg.user?.is_room_assigned || false,
                 assignedRooms: assignedRooms.map(room => ({
-                    room_number: room.room_number,
-                    floor: room.floor
+                    roomName: room.room_number,
+                    floorName: room.floor
                 }))
             };
         });
