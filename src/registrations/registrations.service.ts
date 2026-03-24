@@ -316,6 +316,14 @@ export class RegistrationsService {
       queryBuilder.andWhere('registration.arrival_date = :arrivalDate', { arrivalDate: query.arrivalDate });
     }
 
+    if (query.returnDate) {
+      queryBuilder.andWhere('registration.return_date = :returnDate', { returnDate: query.returnDate });
+    }
+
+    if (query.numPeople) {
+      queryBuilder.andWhere('registration.number_of_persons = :numPeople', { numPeople: query.numPeople });
+    }
+
     if (query.originalPnr) {
       queryBuilder.andWhere('registration.original_pnr = :originalPnr', { originalPnr: query.originalPnr.toUpperCase() });
     }

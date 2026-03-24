@@ -62,6 +62,18 @@ export class AdminDashboardService {
             qb.andWhere('(registration.pnr LIKE :search OR registration.name LIKE :search OR registration.whatsapp_number LIKE :search OR hotel.name LIKE :search)', { search: `%${query.search}%` });
         }
 
+        if (query.arrivalDate) {
+            qb.andWhere('registration.arrival_date = :arrivalDate', { arrivalDate: query.arrivalDate });
+        }
+
+        if (query.returnDate) {
+            qb.andWhere('registration.return_date = :returnDate', { returnDate: query.returnDate });
+        }
+
+        if (query.numPeople) {
+            qb.andWhere('registration.number_of_persons = :numPeople', { numPeople: query.numPeople });
+        }
+
         const [registrations, total] = await qb
             .skip(skip)
             .take(limit)

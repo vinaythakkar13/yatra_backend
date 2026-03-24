@@ -42,4 +42,21 @@ export class UserStatusQueryDto {
   @IsInt()
   @Min(1)
   limit?: number = 10;
+
+  @ApiPropertyOptional({ description: 'Filter by arrival date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  arrivalDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by return date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  returnDate?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by number of people' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  numPeople?: number;
 }
