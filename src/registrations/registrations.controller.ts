@@ -22,6 +22,7 @@ import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-rej
 import { ApproveDocumentDto, RejectDocumentDto } from './dto/approve-reject-document.dto';
 import { QueryRegistrationDto } from './dto/query-registration.dto';
 import { GetByPnrDto } from './dto/get-by-pnr.dto';
+import { DeliverPrasadamDto } from './dto/deliver-prasadam.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
 import { BulkRoomStatusUpdateDto } from './dto/bulk-room-status-update.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -384,6 +385,20 @@ export class RegistrationsController {
       success: true,
       message: 'Registration details retrieved successfully',
       data: result,
+    };
+  }
+
+  @Post('prasadam/deliver')
+  @ApiOperation({ summary: 'Mark Prasadam as delivered for a registration by PNR' })
+  @ApiResponse({ status: 200, description: 'Prasadam marked as delivered' })
+  @ApiResponse({ status: 400, description: 'Prasadam already delivered or registration cancelled' })
+  @ApiResponse({ status: 404, description: 'Registration not found' })
+  async deliverPrasadam(@Body() deliverDto: DeliverPrasadamDto) {
+    const registration = await this.registrationsService.deliverPrasadam(deliverDto);
+    return {
+      success: true,
+      message: 'Prasadam delivered successfully',
+      deliveredAt: registration.prasadam_delivered_at
     };
   }
 

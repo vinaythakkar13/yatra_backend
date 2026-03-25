@@ -22,6 +22,7 @@ import { ApproveRegistrationDto, RejectRegistrationDto } from './dto/approve-rej
 import { ApproveDocumentDto, RejectDocumentDto } from './dto/approve-reject-document.dto';
 import { QueryRegistrationDto, RegistrationFilterMode } from './dto/query-registration.dto';
 import { UpdateTicketTypeDto } from './dto/update-ticket-type.dto';
+import { DeliverPrasadamDto } from './dto/deliver-prasadam.dto';
 import { TicketType } from './enums/ticket-type.enum';
 import { generateInternalPnr } from '../utils/pnr-generator';
 import { BulkRoomStatusUpdateDto } from './dto/bulk-room-status-update.dto';
@@ -955,6 +956,35 @@ export class RegistrationsService {
       order: { created_at: 'DESC' },
     });
     return logs;
+  }
+
+  async deliverPrasadam(deliverDto: DeliverPrasadamDto) {
+    const pnr = deliverDto.pnr.toUpperCase();
+    
+    // Find active registration by PNR and Yatra ID
+    const registration = await this.registrationRepository.findOne({
+      where: { 
+        pnr: pnr,
+        yatra_id: deliverDto.yatraId,
+        status: Not(RegistrationStatus.CANCELLED)
+      }
+    });
+
+    if (!registration) {
+      throw new NotFoundException(`Active registration not found for PNR: ${pnr}`);
+    }
+
+    if (registration.prasadam_delivered) {
+      throw new BadRequestException({
+        message: 'Prasadam has been already given',
+        deliveredAt: registration.prasadam_delivered_at
+      });
+    }
+
+    registration.prasadam_delivered = true;
+    registration.prasadam_delivered_at = new Date();
+
+    return await this.registrationRepository.save(registration);
   }
 
   async getSplitCountByOriginalPnr(originalPnr: string): Promise<{ originalPnr: string; splitCount: number; splitRegistrations: any[] }> {

@@ -150,6 +150,12 @@ export class YatraRegistration {
   @Column({ type: 'datetime', nullable: true, name: 'checked_out_at' })
   checked_out_at: Date | null;
 
+  @Column({ type: 'boolean', default: false, name: 'prasadam_delivered' })
+  prasadam_delivered: boolean;
+
+  @Column({ type: 'datetime', nullable: true, name: 'prasadam_delivered_at' })
+  prasadam_delivered_at: Date | null;
+
   @CreateDateColumn({
     name: 'created_at',
     type: 'datetime',
