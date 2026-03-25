@@ -389,6 +389,9 @@ export class RegistrationsController {
   }
 
   @Post('prasadam/deliver')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin', 'staff')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Mark Prasadam as delivered for a registration by PNR' })
   @ApiResponse({ status: 200, description: 'Prasadam marked as delivered' })
   @ApiResponse({ status: 400, description: 'Prasadam already delivered or registration cancelled' })
