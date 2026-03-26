@@ -22,6 +22,7 @@ import { QueryHotelDto } from './dto/query-hotel.dto';
 import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
 import { AssignRoomDto } from './dto/assign-room.dto';
 import { CheckInOutDto } from './dto/check-in-out.dto';
+import { SetFullPaymentDto } from './dto/set-full-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/guards/roles.guard';
@@ -238,6 +239,18 @@ export class HotelsController {
       message: 'Hotel credentials generated successfully. Save the password — it will not be shown again.',
       data: result,
     };
+  }
+
+  @Post('set-payment-done')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin', 'admin')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set full payment done for a hotel' })
+  @ApiResponse({ status: 200, description: 'Full payment status updated successfully' })
+  @ApiResponse({ status: 404, description: 'Hotel not found' })
+  @HttpCode(HttpStatus.OK)
+  async setFullPaymentDone(@Body() dto: SetFullPaymentDto) {
+    return await this.hotelsService.setFullPaymentDone(dto.hotelId);
   }
 
   @Post('check-in-out')

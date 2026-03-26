@@ -877,4 +877,22 @@ export class HotelsService {
       checked_out_at: registration.checked_out_at,
     };
   }
+
+  async setFullPaymentDone(hotelId: string) {
+    const hotel = await this.hotelRepository.findOne({ where: { id: hotelId } });
+
+    if (!hotel) {
+      throw new NotFoundException('Hotel not found');
+    }
+
+    hotel.full_payment_paid = true;
+    const updatedHotel = await this.hotelRepository.save(hotel);
+
+    return {
+      success: true,
+      message: 'Full payment status updated successfully',
+      hotel_id: updatedHotel.id,
+      full_payment_paid: updatedHotel.full_payment_paid,
+    };
+  }
 }
