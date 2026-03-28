@@ -101,6 +101,15 @@ export class Hotel {
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'password_hash' })
   password_hash: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0, name: 'adjustment_amount' })
+  adjustment_amount: number;
+
+  @Column({ type: 'varchar', length: 20, nullable: true, name: 'adjustment_type' })
+  adjustment_type: 'discount' | 'premium' | null;
+
+  @Column({ type: 'text', nullable: true, name: 'payment_comment' })
+  payment_comment: string | null;
+
   @BeforeInsert()
   @BeforeUpdate()
   async hashPassword() {

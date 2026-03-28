@@ -194,4 +194,20 @@ export class CreateHotelDto {
   @IsOptional()
   @IsBoolean()
   strict_rule?: boolean;
+
+  @ApiPropertyOptional({ description: 'Additional amount to subtract (discount) or add (premium)', minimum: 0, default: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  adjustmentAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Type of adjustment: discount or premium', enum: ['discount', 'premium'] })
+  @IsOptional()
+  @IsString()
+  adjustmentType?: 'discount' | 'premium';
+
+  @ApiPropertyOptional({ description: 'Comment about the adjustment' })
+  @IsOptional()
+  @IsString()
+  paymentComment?: string;
 }

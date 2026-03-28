@@ -250,7 +250,7 @@ export class HotelsController {
   @ApiResponse({ status: 404, description: 'Hotel not found' })
   @HttpCode(HttpStatus.OK)
   async setFullPaymentDone(@Body() dto: SetFullPaymentDto) {
-    return await this.hotelsService.setFullPaymentDone(dto.hotelId);
+    return await this.hotelsService.setFullPaymentDone(dto);
   }
 
   @Post('check-in-out')

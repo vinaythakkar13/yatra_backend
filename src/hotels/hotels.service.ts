@@ -13,6 +13,7 @@ import { YatraRegistration, CheckInStatus } from '../entities/yatra-registration
 import { CheckInOutDto, CheckInActionType } from './dto/check-in-out.dto';
 import { In } from 'typeorm';
 import { QueryAvailableHotelsDto } from './dto/query-available-hotels.dto';
+import { SetFullPaymentDto } from './dto/set-full-payment.dto';
 
 @Injectable()
 export class HotelsService {
@@ -174,6 +175,9 @@ export class HotelsService {
       floors: createHotelDto.floors || [],
       advance_paid_amount: createHotelDto.advancePaidAmount !== undefined ? createHotelDto.advancePaidAmount : 0,
       full_payment_paid: createHotelDto.fullPaymentPaid !== undefined ? createHotelDto.fullPaymentPaid : false,
+      adjustment_amount: createHotelDto.adjustmentAmount !== undefined ? createHotelDto.adjustmentAmount : 0,
+      adjustment_type: createHotelDto.adjustmentType || null,
+      payment_comment: createHotelDto.paymentComment || null,
     };
 
     const hotel = this.hotelRepository.create(hotelData);
@@ -247,6 +251,9 @@ export class HotelsService {
       if (updateHotelDto.is_active !== undefined) updateData.is_active = updateHotelDto.is_active;
       if (updateHotelDto.advancePaidAmount !== undefined) updateData.advance_paid_amount = updateHotelDto.advancePaidAmount;
       if (updateHotelDto.fullPaymentPaid !== undefined) updateData.full_payment_paid = updateHotelDto.fullPaymentPaid;
+      if (updateHotelDto.adjustmentAmount !== undefined) updateData.adjustment_amount = updateHotelDto.adjustmentAmount;
+      if (updateHotelDto.adjustmentType !== undefined) updateData.adjustment_type = updateHotelDto.adjustmentType;
+      if (updateHotelDto.paymentComment !== undefined) updateData.payment_comment = updateHotelDto.paymentComment;
 
       // Update floors-related fields if provided or if structure changed
       if (updateHotelDto.floors !== undefined) {
@@ -878,14 +885,18 @@ export class HotelsService {
     };
   }
 
-  async setFullPaymentDone(hotelId: string) {
-    const hotel = await this.hotelRepository.findOne({ where: { id: hotelId } });
+  async setFullPaymentDone(dto: SetFullPaymentDto) {
+    const hotel = await this.hotelRepository.findOne({ where: { id: dto.hotelId } });
 
     if (!hotel) {
       throw new NotFoundException('Hotel not found');
     }
 
     hotel.full_payment_paid = true;
+    hotel.adjustment_amount = dto.adjustmentAmount || 0;
+    hotel.adjustment_type = dto.adjustmentType || null;
+    hotel.payment_comment = dto.paymentComment || null;
+
     const updatedHotel = await this.hotelRepository.save(hotel);
 
     return {
@@ -893,6 +904,9 @@ export class HotelsService {
       message: 'Full payment status updated successfully',
       hotel_id: updatedHotel.id,
       full_payment_paid: updatedHotel.full_payment_paid,
+      adjustment_amount: updatedHotel.adjustment_amount,
+      adjustment_type: updatedHotel.adjustment_type,
+      payment_comment: updatedHotel.payment_comment,
     };
   }
 }

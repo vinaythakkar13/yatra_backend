@@ -197,4 +197,20 @@ export class UpdateHotelDto {
   @ValidateNested({ each: true })
   @Type(() => RoomDto)
   rooms?: RoomDto[];
+
+  @ApiPropertyOptional({ description: 'Additional amount to subtract (discount) or add (premium)', minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  adjustmentAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Type of adjustment: discount or premium', enum: ['discount', 'premium'] })
+  @IsOptional()
+  @IsString()
+  adjustmentType?: 'discount' | 'premium';
+
+  @ApiPropertyOptional({ description: 'Comment about the adjustment' })
+  @IsOptional()
+  @IsString()
+  paymentComment?: string;
 }
